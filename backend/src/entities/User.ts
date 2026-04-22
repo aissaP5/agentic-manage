@@ -1,4 +1,5 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from "typeorm";
+import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, OneToMany } from "typeorm";
+import { Achievement } from "./Achievement.js";
 
 @Entity()
 export class User {
@@ -10,6 +11,9 @@ export class User {
 
     @Column({ type: "varchar", nullable: true })
     password: string;
+
+    @OneToMany(() => Achievement, (achievement) => achievement.user)
+    achievements: Achievement[];
 
     @CreateDateColumn()
     createdAt: Date;

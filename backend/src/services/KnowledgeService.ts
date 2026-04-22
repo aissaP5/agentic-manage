@@ -3,7 +3,8 @@ import { AppDataSource } from "../data-source.js";
 import { Knowledge } from "../entities/Knowledge.js";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_API_KEY");
-const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+// Using a stable embedding model (embedding-001 is widely available)
+const embeddingModel = genAI.getGenerativeModel({ model: "embedding-001" });
 
 export class KnowledgeService {
     /**

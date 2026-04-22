@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { AppDataSource } from "../data-source.js";
 import { User } from "../entities/User.js";
 import { Progress } from "../entities/Progress.js";
+import { Achievement } from "../entities/Achievement.js";
 
 export class UserController {
   // POST /api/users/login
@@ -65,5 +66,18 @@ export class UserController {
         mastered,
         level
     });
+  }
+
+  // GET /api/users/:id/achievements
+  static async getAchievements(req: Request, res: Response): Promise<void> {
+    const { id } = req.params;
+    const achievementRepo = AppDataSource.getRepository(Achievement);
+    
+    const achievements = await achievementRepo.find({
+        where: { user: { id: Number(id) } },
+        order: { earnedAt: "DESC" }
+    });
+    
+    res.json(achievements);
   }
 }

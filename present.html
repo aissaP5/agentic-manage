@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Plateforme d'Apprentissage Agentique — Présentation Technique</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;600&family=Fraunces:ital,opsz,wght@0,9..144,300;1,9..144,300&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:#050811; --surface:#0b1120; --surface2:#111a2e;
+  --border:rgba(99,179,237,0.13);
+  --c1:#38bdf8; --c2:#a78bfa; --c3:#34d399; --c4:#fb923c; --c5:#f472b6;
+  --text:#f8fafc; --muted:#64748b;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-snap-type:y mandatory}
+body{background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-weight:300;overflow-x:hidden;line-height:1.7;scroll-snap-type:y mandatory}
+::-webkit-scrollbar{width:3px}::-webkit-scrollbar-thumb{background:var(--c1)}
+
+/* NOISE */
+body::after{content:'';position:fixed;inset:0;pointer-events:none;z-index:9998;
+  background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.035'/%3E%3C/svg%3E");opacity:.7}
+
+/* NAV */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(5,8,17,.88);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:.7rem 2rem;display:flex;align-items:center;justify-content:space-between}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:.95rem;background:linear-gradient(135deg,var(--c1),var(--c2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.nav-links{display:flex;gap:1.5rem}
+.nav-links a{font-size:.7rem;color:var(--muted);text-decoration:none;letter-spacing:.05em;transition:color .2s}
+.nav-links a:hover{color:var(--c1)}
+
+/* HERO */
+.hero{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5rem 2rem;text-align:center;position:relative;overflow:hidden;margin-top:0}
+.hero-bg{position:absolute;inset:0;background:
+  radial-gradient(ellipse 80% 60% at 20% 30%,rgba(56,189,248,.09) 0%,transparent 60%),
+  radial-gradient(ellipse 70% 50% at 80% 70%,rgba(167,139,250,.08) 0%,transparent 60%)}
+.grid-lines{position:absolute;inset:0;
+  background-image:linear-gradient(rgba(56,189,248,.04) 1px,transparent 1px),linear-gradient(90deg,rgba(56,189,248,.04) 1px,transparent 1px);
+  background-size:64px 64px;animation:gridScroll 18s linear infinite}
+@keyframes gridScroll{to{transform:translateY(64px)}}
+
+.hero-badge{display:inline-flex;align-items:center;gap:8px;background:rgba(56,189,248,.07);border:1px solid rgba(56,189,248,.22);padding:5px 16px;border-radius:100px;font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--c1);margin-bottom:2rem;animation:fadeUp .8s ease both}
+.hero-title{font-family:'Syne',sans-serif;font-size:clamp(2.8rem,7vw,5.8rem);font-weight:800;line-height:1.04;letter-spacing:-.03em;animation:fadeUp .9s .1s ease both}
+.grad{background:linear-gradient(135deg,var(--c1) 0%,var(--c2) 45%,var(--c3) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.hero-sub{font-family:'Fraunces',serif;font-style:italic;color:var(--muted);font-size:clamp(1rem,1.8vw,1.2rem);max-width:680px;margin:1.5rem auto 2.5rem;animation:fadeUp 1s .2s ease both}
+.hero-pills{display:flex;gap:1rem;flex-wrap:wrap;justify-content:center;animation:fadeUp 1.1s .3s ease both}
+.pill{font-size:.7rem;padding:4px 14px;border-radius:100px;border:1px solid var(--border);color:var(--muted)}
+
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+
+/* SECTION */
+.section{max-width:1160px;margin:0 auto;padding:5rem 2rem}
+.sec-label{font-size:.62rem;letter-spacing:.3em;text-transform:uppercase;color:var(--c1);margin-bottom:.75rem;display:flex;align-items:center;gap:12px}
+.sec-label::after{content:'';flex:1;height:1px;background:var(--border)}
+h2{font-family:'Syne',sans-serif;font-weight:700;font-size:clamp(2.2rem,4.5vw,3.5rem);letter-spacing:-.02em;margin-bottom:1.2rem;line-height:1.1}
+p{color:#cbd5e1;font-size:1.05rem;line-height:1.75;margin-bottom:1.2rem}
+.divider{border:none;height:1px;background:linear-gradient(90deg,transparent,var(--border),transparent)}
+
+/* ═══════════════════════════════════
+   ANIMATED WORKFLOW DIAGRAM
+═══════════════════════════════════ */
+.workflow-container{
+  margin-top:2.5rem;background:var(--surface);border:1px solid var(--border);
+  border-radius:20px;padding:2rem;overflow:hidden;position:relative
+}
+.workflow-container::before{
+  content:'LIVE ORCHESTRATION';position:absolute;top:1rem;right:1.25rem;
+  font-size:.6rem;letter-spacing:.2em;color:var(--c3);
+  display:flex;align-items:center;gap:6px
+}
+.wf-canvas{width:100%;overflow-x:auto}
+#workflowSVG{display:block;margin:0 auto;width:100%;max-width:1000px}
+
+/* Animated signal pulse on paths */
+.signal-dot{r:5;fill:var(--c1);filter:drop-shadow(0 0 6px var(--c1))}
+
+/* Node pulse rings */
+@keyframes ring{0%{r:22;opacity:.6}100%{r:38;opacity:0}}
+.pulse-ring{animation:ring 2s ease-out infinite}
+
+/* Node glow on active */
+.node-active{animation:nodeGlow 1.5s ease-in-out infinite alternate}
+@keyframes nodeGlow{from{filter:drop-shadow(0 0 4px currentColor)}to{filter:drop-shadow(0 0 14px currentColor)}}
+
+/* Flowing path dash */
+.flow-path{stroke-dasharray:8 5;animation:dash 1.2s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-26}}
+
+.flow-path-slow{stroke-dasharray:8 5;animation:dash 2s linear infinite}
+.flow-path-med{stroke-dasharray:8 5;animation:dash 1.6s linear infinite}
+
+/* ═══════════════════════════════════
+   ANIMATED AGENT PIPELINE
+═══════════════════════════════════ */
+.pipeline-anim{margin-top:2.5rem;position:relative}
+.pa-step{
+  display:grid;grid-template-columns:56px 1fr;gap:0;
+  margin-bottom:0;opacity:0;transform:translateX(-30px);
+  transition:opacity .5s ease, transform .5s ease
+}
+.pa-step.visible{opacity:1;transform:translateX(0)}
+.pa-left{display:flex;flex-direction:column;align-items:center}
+.pa-num{
+  width:48px;height:48px;border-radius:50%;
+  display:flex;align-items:center;justify-content:center;
+  font-family:'Syne',sans-serif;font-weight:800;font-size:1rem;
+  border:2px solid currentColor;flex-shrink:0;position:relative;z-index:1;
+  background:var(--bg);
+}
+.pa-line{flex:1;width:2px;background:linear-gradient(to bottom,currentColor,transparent);margin:4px auto;min-height:24px}
+.pa-content{
+  background:var(--surface2);border:1px solid var(--border);
+  border-radius:14px;padding:1.4rem 1.6rem;margin:0 0 1.5rem 1rem;
+  transition:border-color .3s,box-shadow .3s;cursor:pointer
+}
+.pa-content:hover{border-color:var(--c1);box-shadow:0 0 30px rgba(56,189,248,.08)}
+.pa-content h3{font-family:'Syne',sans-serif;font-size:1rem;margin-bottom:.35rem}
+.pa-content p{font-size:.8rem;margin:0;color:#64748b}
+.pa-tag{display:inline-block;font-size:.62rem;padding:2px 9px;border-radius:100px;margin-bottom:.5rem;letter-spacing:.08em}
+
+/* Active step highlight */
+.pa-step.active .pa-content{border-color:currentColor;box-shadow:0 0 30px rgba(56,189,248,.12)}
+.pa-step.active .pa-num{box-shadow:0 0 20px currentColor}
+
+/* ═══════════════════════════════════
+   ANIMATED CHARTS
+═══════════════════════════════════ */
+.charts-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:1.5rem;margin-top:2rem}
+.chart-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.75rem}
+.chart-title{font-family:'Syne',sans-serif;font-size:.9rem;font-weight:600;margin-bottom:.25rem}
+.chart-sub{font-size:.72rem;color:var(--muted);margin-bottom:1.5rem}
+
+/* Bar Chart */
+.bar-chart{display:flex;align-items:flex-end;gap:.75rem;height:140px}
+.bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%}
+.bar{
+  width:100%;border-radius:6px 6px 0 0;transform-origin:bottom;
+  transform:scaleY(0);transition:transform 1s cubic-bezier(.34,1.56,.64,1);
+  position:relative;cursor:pointer
+}
+.bar::after{
+  content:attr(data-val);position:absolute;top:-22px;left:50%;transform:translateX(-50%);
+  font-size:.65rem;color:var(--text);white-space:nowrap;opacity:0;transition:opacity .2s
+}
+.bar:hover::after{opacity:1}
+.bar.animated{transform:scaleY(1)}
+.bar-label{font-size:.62rem;color:var(--muted);text-align:center;line-height:1.3;white-space:nowrap}
+
+/* Donut Chart */
+.donut-wrap{display:flex;align-items:center;gap:2rem;flex-wrap:wrap}
+.donut-svg{flex-shrink:0}
+.donut-legend{display:flex;flex-direction:column;gap:.75rem}
+.legend-item{display:flex;align-items:center;gap:.6rem;font-size:.78rem}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.legend-val{margin-left:auto;font-weight:600;color:var(--text)}
+
+/* Line Sparkline */
+.sparkline-wrap{position:relative;height:100px;margin-top:.5rem}
+#sparkSVG{width:100%;height:100%}
+.spark-path{fill:none;stroke-width:2.5;stroke-linecap:round;stroke-linejoin:round}
+.spark-fill{opacity:.15}
+.spark-dot{r:4;transition:r .2s}
+
+/* Radial / Gauge */
+.gauge-wrap{display:flex;gap:1.5rem;flex-wrap:wrap;justify-content:center;margin-top:1rem}
+.gauge{text-align:center}
+.gauge svg{display:block;margin:0 auto}
+.gauge-label{font-size:.7rem;color:var(--muted);margin-top:4px}
+.gauge-val{font-family:'Syne',sans-serif;font-size:1rem;font-weight:700}
+
+/* ═══════════════════════════════════
+   RAG ANIMATED FLOW
+═══════════════════════════════════ */
+.rag-anim{margin-top:2rem;overflow-x:auto}
+#ragSVG{display:block;margin:0 auto;min-width:700px}
+
+/* ═══════════════════════════════════
+   STAT COUNTERS
+═══════════════════════════════════ */
+.stats-row{display:flex;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-top:2rem}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:1.5rem;text-align:center;transition:border-color .3s}
+.stat:hover{border-color:var(--c1)}
+.stat-num{font-family:'Syne',sans-serif;font-size:2.6rem;font-weight:800;line-height:1;background:linear-gradient(135deg,var(--c1),var(--c2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.stat-label{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-top:4px}
+
+/* TOKEN RING */
+.token-ring-section{text-align:center;padding:4rem 2rem;background:radial-gradient(ellipse 60% 50% at 50% 50%,rgba(167,139,250,.06),transparent)}
+#tokenRingSVG{max-width:500px;margin:2rem auto;display:block}
+
+/* ═══════════════════════════════════
+   FEATURE GRID
+═══════════════════════════════════ */
+.feat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1rem;margin-top:2rem}
+.feat{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem 1.5rem;display:flex;gap:.75rem;align-items:flex-start;transition:all .3s;cursor:default}
+.feat:hover{border-color:var(--c1);transform:translateY(-3px);background:var(--surface2)}
+.feat-icon{font-size:1.3rem;flex-shrink:0;margin-top:2px}
+.feat-name{font-size:.82rem;font-weight:600;color:var(--text)}
+.feat-desc{font-size:.73rem;color:var(--muted);margin-top:3px}
+
+/* ═══════════════════════════════════
+   ROADMAP TIMELINE
+═══════════════════════════════════ */
+.timeline{margin-top:2.5rem;position:relative}
+.timeline::before{content:'';position:absolute;left:50%;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--c1),var(--c2),var(--c3),var(--c4));transform:translateX(-50%)}
+.tl-item{display:grid;grid-template-columns:1fr 60px 1fr;gap:0;margin-bottom:2.5rem;align-items:start;opacity:0;transition:opacity .6s, transform .6s}
+.tl-item.visible{opacity:1}
+.tl-item:nth-child(odd) .tl-left{text-align:right;padding-right:1.5rem}
+.tl-item:nth-child(odd) .tl-right{padding-left:1.5rem;visibility:hidden}
+.tl-item:nth-child(even) .tl-left{visibility:hidden}
+.tl-item:nth-child(even) .tl-right{padding-left:1.5rem}
+.tl-mid{display:flex;flex-direction:column;align-items:center;gap:4px;padding-top:6px}
+.tl-dot{width:18px;height:18px;border-radius:50%;border:2px solid var(--bg);flex-shrink:0}
+.tl-phase{font-size:.6rem;letter-spacing:.15em;text-transform:uppercase;font-weight:600;white-space:nowrap;writing-mode:vertical-rl;margin-top:8px}
+.tl-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:1.25rem;transition:border-color .3s}
+.tl-card:hover{border-color:var(--c1)}
+.tl-card h3{font-family:'Syne',sans-serif;font-size:.95rem;margin-bottom:.5rem}
+.tl-card ul{list-style:none;padding:0}
+.tl-card ul li{font-size:.75rem;color:#64748b;margin-bottom:4px;display:flex;gap:6px}
+.tl-card ul li::before{content:'→';flex-shrink:0}
+@media(max-width:700px){
+  .timeline::before{left:16px}
+  .tl-item{grid-template-columns:32px 1fr;gap:0}
+  .tl-item .tl-left,.tl-item:nth-child(odd) .tl-left,.tl-item:nth-child(even) .tl-left{display:none}
+  .tl-item .tl-right,.tl-item:nth-child(odd) .tl-right,.tl-item:nth-child(even) .tl-right{visibility:visible;padding-left:1rem}
+  .tl-mid{grid-column:1;padding-top:6px}
+  .tl-phase{display:none}
+}
+
+/* FOOTER */
+footer{border-top:1px solid var(--border);padding:3rem 2rem;text-align:center}
+footer p{font-size:.72rem;color:var(--muted)}
+
+/* SCROLL REVEAL */
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .7s ease, transform .7s ease}
+.reveal.visible{opacity:1;transform:translateY(0)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="logo">ALP ◆ Plateforme d'Apprentissage Agentique</div>
+  <div class="nav-links">
+    <a href="#workflow">Architecture</a>
+    <a href="#pipeline">Pipeline</a>
+    <a href="#charts">Analyses</a>
+    <a href="#rag">Mémoire RAG</a>
+    <a href="#roadmap">Évolutions</a>
+  </div>
+</nav>
+<div id="progress-bar"></div>
+
+<!-- ═══ HERO ═══ -->
+<section class="hero">
+  <div class="hero-bg"></div>
+  <div class="grid-lines"></div>
+  <div class="hero-badge">Architecture Technique · Édition Premium 2026</div>
+  <h1 class="hero-title">La Plateforme<br><span class="grad">Agentique</span></h1>
+  <p class="hero-sub">Une démonstration interactive de l'orchestration multi-agents, des flux de données RAG et de l'optimisation de l'apprentissage.</p>
+  <div class="hero-pills">
+    <span class="pill">Gemini 2.0 Flash</span>
+    <span class="pill">Groq Llama 3.3-70b</span>
+    <span class="pill">pgvector RAG</span>
+    <span class="pill">React 18 + TypeScript</span>
+    <span class="pill">Node.js ESM</span>
+  </div>
+</section>
+
+<!-- ═══ STATS ═══ -->
+<section class="section reveal" id="stats">
+  <div class="sec-label">01 · Architecture Système</div>
+  <h2>Visualisation du Flux de Données</h2>
+  <p>Suivez le parcours d'une requête à travers le pipeline d'orchestration — des agents spécialisés à la base de données vectorielle.</p>
+    <div class="stat"><div class="stat-num" data-target="4" data-suffix="">0</div><div class="stat-label">Agents Spécialisés</div></div>
+    <div class="stat"><div class="stat-num" data-target="250" data-suffix=" ms">0</div><div class="stat-label">Latence Moyenne Groq</div></div>
+    <div class="stat"><div class="stat-num" data-target="98.5" data-suffix=" %">0</div><div class="stat-label">Précision du Critic Agent</div></div>
+    <div class="stat"><div class="stat-num" data-target="1536" data-suffix="">0</div><div class="stat-label">Dimensions Vectorielles</div></div>
+    <div class="stat"><div class="stat-num" data-target="94.7" data-suffix=" %">0</div><div class="stat-label">Économie de Tokens</div></div>
+    <div class="stat"><div class="stat-num" data-target="2" data-suffix="">0</div><div class="stat-label">Fournisseurs (Groq/Gemini)</div></div>
+  </div>
+  <p style="text-align:center;margin-top:2rem;color:var(--muted);font-size:.9rem">Métriques basées sur l'infrastructure de production actuelle.</p>
+</section>
+
+<hr class="divider">
+
+<!-- ═══ ANIMATED WORKFLOW DIAGRAM ═══ -->
+<section class="section reveal" id="workflow">
+  <div class="sec-label">01 · System Architecture</div>
+  <h2>Live Data Flow Visualization</h2>
+  <p>Watch packets travel through the full orchestration pipeline — from user request through agents, tools, and into the vector database. Signals animate in real-time to reflect actual system behavior.</p>
+
+  <div class="workflow-container">
+    <svg id="workflowSVG" viewBox="0 0 960 520" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="gBlue" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#38bdf8" stop-opacity=".2"/><stop offset="100%" stop-color="#38bdf8" stop-opacity=".05"/></linearGradient>
+        <linearGradient id="gPurple" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#a78bfa" stop-opacity=".2"/><stop offset="100%" stop-color="#a78bfa" stop-opacity=".05"/></linearGradient>
+        <linearGradient id="gGreen" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#34d399" stop-opacity=".2"/><stop offset="100%" stop-color="#34d399" stop-opacity=".05"/></linearGradient>
+        <linearGradient id="gOrange" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#fb923c" stop-opacity=".2"/><stop offset="100%" stop-color="#fb923c" stop-opacity=".05"/></linearGradient>
+        <filter id="glow"><feGaussianBlur stdDeviation="4" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        <marker id="ah" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="rgba(99,179,237,.5)"/></marker>
+        <marker id="ahg" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="rgba(52,211,153,.6)"/></marker>
+        <marker id="aho" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="rgba(251,146,60,.6)"/></marker>
+        <marker id="ahp" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><polygon points="0 0,7 2.5,0 5" fill="rgba(167,139,250,.5)"/></marker>
+      </defs>
+
+      <!-- Zone backgrounds -->
+      <rect x="8" y="8" width="130" height="504" rx="10" fill="rgba(56,189,248,.03)" stroke="rgba(56,189,248,.1)" stroke-width="1" stroke-dasharray="3,4"/>
+      <text x="73" y="27" text-anchor="middle" fill="rgba(56,189,248,.35)" font-family="JetBrains Mono" font-size="8" letter-spacing="2">CLIENT</text>
+
+      <rect x="150" y="8" width="130" height="504" rx="10" fill="rgba(167,139,250,.03)" stroke="rgba(167,139,250,.1)" stroke-width="1" stroke-dasharray="3,4"/>
+      <text x="215" y="27" text-anchor="middle" fill="rgba(167,139,250,.35)" font-family="JetBrains Mono" font-size="8" letter-spacing="2">API</text>
+
+      <rect x="292" y="8" width="390" height="320" rx="10" fill="rgba(52,211,153,.02)" stroke="rgba(52,211,153,.1)" stroke-width="1" stroke-dasharray="3,4"/>
+      <text x="487" y="27" text-anchor="middle" fill="rgba(52,211,153,.35)" font-family="JetBrains Mono" font-size="8" letter-spacing="2">AGENT ORCHESTRATION</text>
+
+      <rect x="694" y="8" width="260" height="200" rx="10" fill="rgba(251,146,60,.03)" stroke="rgba(251,146,60,.1)" stroke-width="1" stroke-dasharray="3,4"/>
+      <text x="824" y="27" text-anchor="middle" fill="rgba(251,146,60,.35)" font-family="JetBrains Mono" font-size="8" letter-spacing="2">EXTERNAL TOOLS</text>
+
+      <rect x="292" y="340" width="662" height="172" rx="10" fill="rgba(244,114,182,.03)" stroke="rgba(244,114,182,.1)" stroke-width="1" stroke-dasharray="3,4"/>
+      <text x="623" y="358" text-anchor="middle" fill="rgba(244,114,182,.35)" font-family="JetBrains Mono" font-size="8" letter-spacing="2">PERSISTENCE + VECTOR STORE</text>
+
+      <!-- ─── NODES ─── -->
+      <!-- React App -->
+      <rect id="nReact" x="18" y="60" width="110" height="48" rx="8" fill="url(#gBlue)" stroke="#38bdf8" stroke-width="1.5"/>
+      <text x="73" y="80" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="10" font-weight="600">React 18</text>
+      <text x="73" y="97" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">TypeScript · Vite</text>
+
+      <!-- User Goal -->
+      <rect id="nGoal" x="18" y="145" width="110" height="42" rx="8" fill="rgba(56,189,248,.05)" stroke="rgba(56,189,248,.25)" stroke-width="1"/>
+      <text x="73" y="163" text-anchor="middle" fill="#e2e8f0" font-family="JetBrains Mono" font-size="9" font-weight="600">User Goal</text>
+      <text x="73" y="178" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">"Learn Quantum…"</text>
+
+      <!-- Response -->
+      <rect id="nResp" x="18" y="270" width="110" height="42" rx="8" fill="rgba(52,211,153,.05)" stroke="rgba(52,211,153,.25)" stroke-width="1"/>
+      <text x="73" y="288" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="9" font-weight="600">Lesson Delivered</text>
+      <text x="73" y="303" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Framer Motion UI</text>
+
+      <!-- Express -->
+      <rect id="nExpress" x="160" y="60" width="110" height="48" rx="8" fill="url(#gPurple)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="215" y="80" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="10" font-weight="600">Express.js</text>
+      <text x="215" y="97" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Node.js ESM</text>
+
+      <!-- Orchestrator -->
+      <rect id="nOrch" x="160" y="165" width="110" height="48" rx="8" fill="rgba(167,139,250,.08)" stroke="#a78bfa" stroke-width="1.5"/>
+      <text x="215" y="185" text-anchor="middle" fill="#e2e8f0" font-family="JetBrains Mono" font-size="10" font-weight="600">Orchestrator</text>
+      <text x="215" y="202" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Pipeline Router</text>
+
+      <!-- ARCHITECT -->
+      <rect id="nArch" x="302" y="50" width="148" height="60" rx="8" fill="url(#gBlue)" stroke="#38bdf8" stroke-width="1.8"/>
+      <text x="376" y="73" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="11" font-weight="700">① ARCHITECT</text>
+      <text x="376" y="88" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8.5">Gemini 2.0 Flash</text>
+      <text x="376" y="102" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="8">Builds 4-week plan</text>
+
+      <!-- RESEARCHER -->
+      <rect id="nRes" x="462" y="50" width="148" height="60" rx="8" fill="url(#gPurple)" stroke="#a78bfa" stroke-width="1.8"/>
+      <text x="536" y="73" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="11" font-weight="700">② RESEARCHER</text>
+      <text x="536" y="88" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8.5">Groq Llama 3.3-70b</text>
+      <text x="536" y="102" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="8">Tool calls · ~200ms</text>
+
+      <!-- WRITER -->
+      <rect id="nWrit" x="302" y="180" width="148" height="60" rx="8" fill="url(#gGreen)" stroke="#34d399" stroke-width="1.8"/>
+      <text x="376" y="203" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="11" font-weight="700">③ WRITER</text>
+      <text x="376" y="218" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8.5">Gemini 2.0 Flash</text>
+      <text x="376" y="232" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="8">&gt;1000w lessons + MD</text>
+
+      <!-- CRITIC -->
+      <rect id="nCrit" x="462" y="180" width="148" height="60" rx="8" fill="url(#gOrange)" stroke="#fb923c" stroke-width="1.8"/>
+      <text x="536" y="203" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono" font-size="11" font-weight="700">④ CRITIC</text>
+      <text x="536" y="218" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8.5">Hybrid Model</text>
+      <text x="536" y="232" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="8">Validate + jsonrepair</text>
+
+      <!-- jsonrepair -->
+      <rect id="nRepair" x="362" y="290" width="180" height="36" rx="8" fill="rgba(251,146,60,.06)" stroke="rgba(251,146,60,.3)" stroke-width="1"/>
+      <text x="452" y="306" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono" font-size="9.5" font-weight="600">jsonrepair</text>
+      <text x="452" y="320" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Self-healing AI output</text>
+
+      <!-- Wikipedia -->
+      <rect x="704" y="46" width="108" height="36" rx="7" fill="rgba(251,146,60,.06)" stroke="rgba(251,146,60,.2)"/>
+      <text x="758" y="62" text-anchor="middle" fill="#fb923c" font-family="JetBrains Mono" font-size="9" font-weight="600">Wikipedia API</text>
+      <text x="758" y="75" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Encyclopedic refs</text>
+
+      <!-- YouTube -->
+      <rect x="832" y="46" width="108" height="36" rx="7" fill="rgba(244,114,182,.06)" stroke="rgba(244,114,182,.2)"/>
+      <text x="886" y="62" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono" font-size="9" font-weight="600">YouTube API</text>
+      <text x="886" y="75" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Video resources</text>
+
+      <!-- Google -->
+      <rect x="704" y="110" width="108" height="36" rx="7" fill="rgba(56,189,248,.06)" stroke="rgba(56,189,248,.2)"/>
+      <text x="758" y="126" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="9" font-weight="600">Google Search</text>
+      <text x="758" y="139" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Current articles</text>
+
+      <!-- Aggregated Research -->
+      <rect x="704" y="168" width="236" height="36" rx="7" fill="rgba(52,211,153,.06)" stroke="rgba(52,211,153,.2)"/>
+      <text x="822" y="184" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="9" font-weight="600">Aggregated Research Payload</text>
+      <text x="822" y="197" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Verified links + summaries → Writer</text>
+
+      <!-- DB Nodes -->
+      <rect x="302" y="368" width="108" height="48" rx="8" fill="rgba(167,139,250,.06)" stroke="rgba(167,139,250,.25)"/>
+      <text x="356" y="390" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="9" font-weight="600">users</text>
+      <text x="356" y="406" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">id · email · prefs</text>
+
+      <rect x="424" y="368" width="124" height="48" rx="8" fill="rgba(56,189,248,.06)" stroke="rgba(56,189,248,.25)"/>
+      <text x="486" y="390" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="9" font-weight="600">learning_plans</text>
+      <text x="486" y="406" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">goal · weeks · topics[]</text>
+
+      <rect x="562" y="368" width="108" height="48" rx="8" fill="rgba(52,211,153,.06)" stroke="rgba(52,211,153,.25)"/>
+      <text x="616" y="390" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="9" font-weight="600">topics</text>
+      <text x="616" y="406" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">content · quiz · MD</text>
+
+      <!-- pgvector -->
+      <rect x="684" y="356" width="262" height="64" rx="8" fill="rgba(244,114,182,.08)" stroke="#f472b6" stroke-width="1.8"/>
+      <text x="815" y="381" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono" font-size="10" font-weight="700">knowledge_embeddings</text>
+      <text x="815" y="396" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8.5">pgvector · 1536-dim · HNSW index</text>
+      <text x="815" y="410" text-anchor="middle" fill="#94a3b8" font-family="JetBrains Mono" font-size="8">Semantic RAG memory</text>
+
+      <!-- TypeORM label -->
+      <rect x="302" y="434" width="644" height="28" rx="7" fill="rgba(167,139,250,.03)" stroke="rgba(167,139,250,.12)"/>
+      <text x="624" y="452" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8.5">TypeORM · PostgreSQL 16 + pgvector extension</text>
+
+      <!-- ─── ANIMATED PATHS ─── -->
+      <!-- React → Express -->
+      <path id="p1" d="M128 84 L158 84" stroke="rgba(56,189,248,.45)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#ah)"/>
+
+      <!-- Express → Orchestrator -->
+      <path id="p2" d="M215 108 L215 163" stroke="rgba(167,139,250,.45)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#ahp)"/>
+
+      <!-- User Goal → Orchestrator -->
+      <path d="M128 166 L158 189" stroke="rgba(56,189,248,.35)" stroke-width="1.5" fill="none" class="flow-path-slow" marker-end="url(#ah)"/>
+
+      <!-- Orchestrator → Architect -->
+      <path id="p3" d="M270 180 Q286 140 300 110" stroke="rgba(56,189,248,.5)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#ah)"/>
+
+      <!-- Orchestrator → Researcher -->
+      <path id="p4" d="M270 185 Q380 130 460 98" stroke="rgba(167,139,250,.5)" stroke-width="1.5" fill="none" class="flow-path-med" marker-end="url(#ahp)"/>
+
+      <!-- Architect → Writer -->
+      <path id="p5" d="M376 110 L376 178" stroke="rgba(56,189,248,.4)" stroke-width="1.5" fill="none" stroke-dasharray="5,4" class="flow-path-slow" marker-end="url(#ah)"/>
+
+      <!-- Researcher → Writer (research passes) -->
+      <path id="p6" d="M462 210 L452 210" stroke="rgba(167,139,250,.4)" stroke-width="1.5" fill="none" stroke-dasharray="5,4" class="flow-path-med" marker-end="url(#ahp)"/>
+
+      <!-- Researcher → Tools -->
+      <path d="M610 80 L702 64" stroke="rgba(251,146,60,.45)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#aho)"/>
+      <path d="M610 82 L830 64" stroke="rgba(244,114,182,.4)" stroke-width="1.5" fill="none" class="flow-path-slow" marker-end="url(#ah)"/>
+      <path d="M610 85 L702 128" stroke="rgba(56,189,248,.4)" stroke-width="1.5" fill="none" class="flow-path-med" marker-end="url(#ah)"/>
+
+      <!-- Tools → Aggregated -->
+      <path d="M758 82 L770 166" stroke="rgba(52,211,153,.35)" stroke-width="1" fill="none" stroke-dasharray="3,4" marker-end="url(#ahg)"/>
+      <path d="M886 82 L870 166" stroke="rgba(52,211,153,.35)" stroke-width="1" fill="none" stroke-dasharray="3,4" marker-end="url(#ahg)"/>
+      <path d="M758 146 L780 166" stroke="rgba(52,211,153,.35)" stroke-width="1" fill="none" stroke-dasharray="3,4" marker-end="url(#ahg)"/>
+
+      <!-- Aggregated → Researcher -->
+      <path d="M702 186 L612 196" stroke="rgba(52,211,153,.5)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#ahg)"/>
+
+      <!-- Writer → jsonrepair -->
+      <path d="M376 240 L420 288" stroke="rgba(251,146,60,.4)" stroke-width="1.5" fill="none" stroke-dasharray="4,3" class="flow-path-slow" marker-end="url(#aho)"/>
+
+      <!-- Critic → jsonrepair -->
+      <path d="M536 240 L490 288" stroke="rgba(251,146,60,.4)" stroke-width="1.5" fill="none" stroke-dasharray="4,3" class="flow-path-med" marker-end="url(#aho)"/>
+
+      <!-- jsonrepair → Express (response) -->
+      <path d="M360 308 L270 291" stroke="rgba(52,211,153,.45)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#ahg)"/>
+
+      <!-- Express → React (response) -->
+      <path d="M160 291 L130 291" stroke="rgba(52,211,153,.4)" stroke-width="1.5" fill="none" stroke-dasharray="4,3" class="flow-path-slow" marker-end="url(#ahg)"/>
+
+      <!-- jsonrepair → DB -->
+      <path d="M452 326 L452 366" stroke="rgba(167,139,248,.4)" stroke-width="1.5" fill="none" stroke-dasharray="4,3" class="flow-path" marker-end="url(#ahp)"/>
+
+      <!-- DB → pgvector -->
+      <path d="M672 392 L682 392" stroke="rgba(244,114,182,.5)" stroke-width="1.5" fill="none" class="flow-path-slow" marker-end="url(#ah)"/>
+
+      <!-- pgvector → Agents (RAG) -->
+      <path d="M815 354 L815 260 L624 244" stroke="rgba(244,114,182,.25)" stroke-width="1.5" fill="none" stroke-dasharray="5,5" class="flow-path-slow" marker-end="url(#ah)"/>
+
+      <!-- Animated signal dots -->
+      <circle class="signal-dot" style="--color:#38bdf8" r="5" fill="#38bdf8" filter="url(#glow)">
+        <animateMotion dur="2.5s" repeatCount="indefinite" path="M128 84 L158 84 L215 108 L215 163 M215 180 Q286 140 300 110"/>
+      </circle>
+      <circle r="5" fill="#a78bfa" filter="url(#glow)" style="filter:drop-shadow(0 0 6px #a78bfa)">
+        <animateMotion dur="3s" repeatCount="indefinite" begin="0.8s" path="M462 98 L462 180 L452 210 L376 210 L376 240 L420 288 L360 308 L270 291 L160 291 L130 291"/>
+      </circle>
+      <circle r="4.5" fill="#34d399" filter="url(#glow)" style="filter:drop-shadow(0 0 6px #34d399)">
+        <animateMotion dur="4s" repeatCount="indefinite" begin="1.5s" path="M452 326 L452 366 L672 392 L682 392"/>
+      </circle>
+      <circle r="4" fill="#fb923c" filter="url(#glow)" style="filter:drop-shadow(0 0 6px #fb923c)">
+        <animateMotion dur="2s" repeatCount="indefinite" begin="0.3s" path="M610 80 L702 64 L758 82 L770 166 L702 186 L612 196"/>
+      </circle>
+    </svg>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══ ANIMATED PIPELINE ═══ -->
+<section class="section reveal" id="pipeline">
+  <div class="sec-label">02 · Orchestration des Agents</div>
+  <h2>Pipeline Étape par Étape</h2>
+  <p>Le pipeline s'exécute de manière déterministe pour chaque module généré. Cliquez sur une étape pour l'inspecter.</p>
+
+  <div class="pipeline-anim" id="pipelineAnim">
+
+    <div class="pa-step" style="color:var(--c1)">
+      <div class="pa-left"><div class="pa-num" style="color:var(--c1)">1</div><div class="pa-line" style="background:linear-gradient(var(--c1),var(--c2))"></div></div>
+      <div class="pa-content" onclick="jumpToStep(0)">
+        <span class="pa-tag" style="background:rgba(56,189,248,.1);color:var(--c1);border:1px solid rgba(56,189,248,.2)">Réception</span>
+        <h3 style="color:var(--c1)">Requête API Ingestée</h3>
+        <p>Validation JWT et chargement du contexte du plan d'apprentissage depuis PostgreSQL.</p>
+      </div>
+    </div>
+
+    <div class="pa-step" style="color:var(--c2)">
+      <div class="pa-left"><div class="pa-num" style="color:var(--c2)">2</div><div class="pa-line" style="background:linear-gradient(var(--c2),#38bdf8)"></div></div>
+      <div class="pa-content" onclick="jumpToStep(1)">
+        <span class="pa-tag" style="background:rgba(167,139,250,.1);color:var(--c2);border:1px solid rgba(167,139,250,.2)">Mémoire RAG</span>
+        <h3 style="color:var(--c2)">Recherche Sémantique pgvector</h3>
+        <p>Récupération des leçons précédentes similaires via cosinus-similarité pour assurer la cohérence.</p>
+      </div>
+    </div>
+
+    <div class="pa-step" style="color:var(--c5)">
+      <div class="pa-left"><div class="pa-num" style="color:var(--c5)">3</div><div class="pa-line" style="background:linear-gradient(var(--c5),var(--c1))"></div></div>
+      <div class="pa-content" onclick="jumpToStep(2)">
+        <span class="pa-tag" style="background:rgba(244,114,182,.1);color:var(--c5);border:1px solid rgba(244,114,182,.2)">Researcher · Groq</span>
+        <h3 style="color:var(--c5)">Appels d'Outils en Parallèle</h3>
+        <p>Groq interroge Wikipédia, Google et YouTube simultanément pour obtenir des sources vérifiées en ~250ms.</p>
+      </div>
+    </div>
+
+    <div class="pa-step" style="color:var(--c3)">
+      <div class="pa-left"><div class="pa-num" style="color:var(--c3)">4</div><div class="pa-line" style="background:linear-gradient(var(--c3),var(--c4))"></div></div>
+      <div class="pa-content" onclick="jumpToStep(3)">
+        <span class="pa-tag" style="background:rgba(52,211,153,.1);color:var(--c3);border:1px solid rgba(52,211,153,.2)">Writer · Gemini</span>
+        <h3 style="color:var(--c3)">Génération de Contenu Profond</h3>
+        <p>Gemini 2.0 Flash synthétise les recherches pour rédiger un module structuré (Markdown + Schémas).</p>
+      </div>
+    </div>
+
+    <div class="pa-step" style="color:var(--c4)">
+      <div class="pa-left"><div class="pa-num" style="color:var(--c4)">5</div><div class="pa-line" style="background:linear-gradient(var(--c4),var(--c2))"></div></div>
+      <div class="pa-content" onclick="jumpToStep(4)">
+        <span class="pa-tag" style="background:rgba(251,146,60,.1);color:var(--c4);border:1px solid rgba(251,146,60,.2)">Critic · Hybrid</span>
+        <h3 style="color:var(--c4)">Validation gate + jsonrepair</h3>
+        <p>JSON structure parsed. jsonrepair corrects malformed outputs deterministically. Mermaid syntax validated. Pedagogical score computed. If score &lt; threshold → Writer revision loop.</p>
+      </div>
+    </div>
+
+    <div class="pa-step" style="color:var(--c2)">
+      <div class="pa-left"><div class="pa-num" style="color:var(--c2)">6</div><div class="pa-line" style="background:linear-gradient(var(--c2),var(--c5))"></div></div>
+      <div class="pa-content" onclick="jumpToStep(5)">
+        <span class="pa-tag" style="background:rgba(167,139,250,.1);color:var(--c2);border:1px solid rgba(167,139,250,.2)">Persistance</span>
+        <h3 style="color:var(--c2)">Écriture PostgreSQL + pgvector</h3>
+        <p>Sauvegarde du module et indexation vectorielle immédiate pour la mémoire à long terme.</p>
+      </div>
+    </div>
+
+    <div class="pa-step" style="color:var(--c3)">
+      <div class="pa-left"><div class="pa-num" style="color:var(--c3)">7</div><div class="pa-line" style="opacity:0"></div></div>
+      <div class="pa-content" onclick="jumpToStep(6)">
+        <span class="pa-tag" style="background:rgba(52,211,153,.1);color:var(--c3);border:1px solid rgba(52,211,153,.2)">Livraison</span>
+        <h3 style="color:var(--c3)">Module délivré au Client</h3>
+        <p>Le module structuré est affiché dynamiquement avec des schémas Mermaid et des quiz interactifs.</p>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══ ANIMATED CHARTS ═══ -->
+<section class="section reveal" id="charts">
+  <div class="sec-label">03 · Analyses de la Plateforme</div>
+  <h2>Métriques d'Architecture &amp; Performance</h2>
+  <p>Indicateurs de performance clés à travers la stack hybride et la couche de données vectorielles.</p>
+
+  <div class="charts-grid">
+
+    <!-- BAR: Latency per Agent -->
+    <div class="chart-card">
+      <div class="chart-title">Agent Latency Comparison</div>
+      <div class="chart-sub">Average response time per agent (milliseconds)</div>
+      <div class="bar-chart" id="barChart">
+        <div class="bar-wrap"><div class="bar" style="height:35%;background:linear-gradient(to top,#38bdf8,rgba(56,189,248,.3))" data-val="200ms"></div><div class="bar-label">Researcher<br>(Groq)</div></div>
+        <div class="bar-wrap"><div class="bar" style="height:70%;background:linear-gradient(to top,#34d399,rgba(52,211,153,.3))" data-val="1.4s"></div><div class="bar-label">Architect<br>(Gemini)</div></div>
+        <div class="bar-wrap"><div class="bar" style="height:90%;background:linear-gradient(to top,#a78bfa,rgba(167,139,250,.3))" data-val="2.1s"></div><div class="bar-label">Writer<br>(Gemini)</div></div>
+        <div class="bar-wrap"><div class="bar" style="height:20%;background:linear-gradient(to top,#fb923c,rgba(251,146,60,.3))" data-val="80ms"></div><div class="bar-label">Critic<br>(Hybrid)</div></div>
+        <div class="bar-wrap"><div class="bar" style="height:48%;background:linear-gradient(to top,#f472b6,rgba(244,114,182,.3))" data-val="900ms"></div><div class="bar-label">pgvector<br>Search</div></div>
+      </div>
+    </div>
+
+    <!-- DONUT: Token Distribution -->
+    <div class="chart-card">
+      <div class="chart-title">Token Budget Allocation</div>
+      <div class="chart-sub">Per-agent share of total token consumption</div>
+      <div class="donut-wrap">
+        <svg class="donut-svg" id="donutSVG" viewBox="0 0 140 140" width="140" height="140">
+          <circle cx="70" cy="70" r="50" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="22"/>
+          <!-- Writer: 55% -->
+          <circle id="dc1" cx="70" cy="70" r="50" fill="none" stroke="#34d399" stroke-width="22" stroke-dasharray="0 314" stroke-dashoffset="0" stroke-linecap="butt" transform="rotate(-90 70 70)" style="transition:stroke-dasharray 1.5s ease"/>
+          <!-- Architect: 25% -->
+          <circle id="dc2" cx="70" cy="70" r="50" fill="none" stroke="#38bdf8" stroke-width="22" stroke-dasharray="0 314" stroke-dashoffset="0" stroke-linecap="butt" transform="rotate(-90 70 70)" style="transition:stroke-dasharray 1.5s .2s ease"/>
+          <!-- Researcher: 12% -->
+          <circle id="dc3" cx="70" cy="70" r="50" fill="none" stroke="#a78bfa" stroke-width="22" stroke-dasharray="0 314" stroke-dashoffset="0" stroke-linecap="butt" transform="rotate(-90 70 70)" style="transition:stroke-dasharray 1.5s .4s ease"/>
+          <!-- Critic: 8% -->
+          <circle id="dc4" cx="70" cy="70" r="50" fill="none" stroke="#fb923c" stroke-width="22" stroke-dasharray="0 314" stroke-dashoffset="0" stroke-linecap="butt" transform="rotate(-90 70 70)" style="transition:stroke-dasharray 1.5s .6s ease"/>
+          <text x="70" y="66" text-anchor="middle" fill="#e2e8f0" font-family="Syne,sans-serif" font-size="18" font-weight="700">4</text>
+          <text x="70" y="82" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="9">Agents</text>
+        </svg>
+        <div class="donut-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:#34d399"></div>Writer (Gemini)<span class="legend-val">55%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#38bdf8"></div>Architect<span class="legend-val">25%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#a78bfa"></div>Researcher<span class="legend-val">12%</span></div>
+          <div class="legend-item"><div class="legend-dot" style="background:#fb923c"></div>Critic<span class="legend-val">8%</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LINE: Lesson Quality Score Over Weeks -->
+    <div class="chart-card">
+      <div class="chart-title">Lesson Quality Score Trend</div>
+      <div class="chart-sub">RAG-augmented quality score over 4 weeks (max 100)</div>
+      <div class="sparkline-wrap">
+        <svg id="sparkSVG" viewBox="0 0 300 90" preserveAspectRatio="none">
+          <defs>
+            <linearGradient id="sparkGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" stop-color="#38bdf8" stop-opacity=".4"/>
+              <stop offset="100%" stop-color="#38bdf8" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <!-- Grid lines -->
+          <line x1="0" y1="22" x2="300" y2="22" stroke="rgba(99,179,237,.08)" stroke-width="1"/>
+          <line x1="0" y1="45" x2="300" y2="45" stroke="rgba(99,179,237,.08)" stroke-width="1"/>
+          <line x1="0" y1="68" x2="300" y2="68" stroke="rgba(99,179,237,.08)" stroke-width="1"/>
+          <text x="302" y="25" fill="#475569" font-family="JetBrains Mono" font-size="7">100</text>
+          <text x="302" y="48" fill="#475569" font-family="JetBrains Mono" font-size="7">75</text>
+          <text x="302" y="71" fill="#475569" font-family="JetBrains Mono" font-size="7">50</text>
+          <!-- Fill -->
+          <path id="sparkFill" d="" fill="url(#sparkGrad)"/>
+          <!-- Line -->
+          <path id="sparkLine" d="" fill="none" stroke="#38bdf8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="400" stroke-dashoffset="400" style="transition:stroke-dashoffset 2s ease"/>
+          <!-- Dots -->
+          <g id="sparkDots"></g>
+          <!-- Labels -->
+          <g id="sparkLabels"></g>
+        </svg>
+      </div>
+    </div>
+
+    <!-- GAUGES: Stack Health -->
+    <div class="chart-card">
+      <div class="chart-title">Stack Performance Gauges</div>
+      <div class="chart-sub">Real-time health indicators across key subsystems</div>
+      <div class="gauge-wrap" id="gaugesWrap">
+        <div class="gauge">
+          <svg viewBox="0 0 80 50" width="80" height="50">
+            <path d="M10 40 A30 30 0 0 1 70 40" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10" stroke-linecap="round"/>
+            <path id="g1p" d="M10 40 A30 30 0 0 1 70 40" fill="none" stroke="#34d399" stroke-width="10" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2" style="transition:stroke-dashoffset 1.8s ease"/>
+            <text x="40" y="44" text-anchor="middle" fill="#e2e8f0" font-family="Syne" font-size="11" font-weight="700" id="g1v">0%</text>
+          </svg>
+          <div class="gauge-label">Gemini API</div>
+        </div>
+        <div class="gauge">
+          <svg viewBox="0 0 80 50" width="80" height="50">
+            <path d="M10 40 A30 30 0 0 1 70 40" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10" stroke-linecap="round"/>
+            <path id="g2p" d="M10 40 A30 30 0 0 1 70 40" fill="none" stroke="#38bdf8" stroke-width="10" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2" style="transition:stroke-dashoffset 1.8s .2s ease"/>
+            <text x="40" y="44" text-anchor="middle" fill="#e2e8f0" font-family="Syne" font-size="11" font-weight="700" id="g2v">0%</text>
+          </svg>
+          <div class="gauge-label">Groq API</div>
+        </div>
+        <div class="gauge">
+          <svg viewBox="0 0 80 50" width="80" height="50">
+            <path d="M10 40 A30 30 0 0 1 70 40" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10" stroke-linecap="round"/>
+            <path id="g3p" d="M10 40 A30 30 0 0 1 70 40" fill="none" stroke="#a78bfa" stroke-width="10" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2" style="transition:stroke-dashoffset 1.8s .4s ease"/>
+            <text x="40" y="44" text-anchor="middle" fill="#e2e8f0" font-family="Syne" font-size="11" font-weight="700" id="g3v">0%</text>
+          </svg>
+          <div class="gauge-label">pgvector</div>
+        </div>
+        <div class="gauge">
+          <svg viewBox="0 0 80 50" width="80" height="50">
+            <path d="M10 40 A30 30 0 0 1 70 40" fill="none" stroke="rgba(255,255,255,.07)" stroke-width="10" stroke-linecap="round"/>
+            <path id="g4p" d="M10 40 A30 30 0 0 1 70 40" fill="none" stroke="#fb923c" stroke-width="10" stroke-linecap="round" stroke-dasharray="94.2" stroke-dashoffset="94.2" style="transition:stroke-dashoffset 1.8s .6s ease"/>
+            <text x="40" y="44" text-anchor="middle" fill="#e2e8f0" font-family="Syne" font-size="11" font-weight="700" id="g4v">0%</text>
+          </svg>
+          <div class="gauge-label">jsonrepair</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══ ANIMATED RAG FLOW ═══ -->
+<section class="section reveal" id="rag">
+  <div class="sec-label">04 · Architecture Mémoire RAG</div>
+  <h2>Pipeline de Mémoire Vectorielle</h2>
+  <p>Chaque leçon générée est indexée dans pgvector. Les futurs appels d'agents effectuent une recherche sémantique pour garantir une continuité pédagogique.</p>
+
+  <div class="rag-anim">
+    <svg id="ragSVG" viewBox="0 0 800 160" width="800" height="160">
+      <defs>
+        <linearGradient id="ragGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#a78bfa" stop-opacity=".15"/>
+          <stop offset="100%" stop-color="#f472b6" stop-opacity=".15"/>
+        </linearGradient>
+      </defs>
+
+      <!-- Background strip -->
+      <rect x="0" y="40" width="800" height="80" rx="12" fill="url(#ragGrad)" stroke="rgba(167,139,250,.15)" stroke-width="1"/>
+
+      <!-- Nodes -->
+      <g id="ragNode1"><rect x="10" y="55" width="110" height="50" rx="8" fill="var(--surface)" stroke="rgba(167,139,250,.35)" stroke-width="1.5"/><text x="65" y="76" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="9" font-weight="600">Lesson Output</text><text x="65" y="92" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Writer Agent</text></g>
+
+      <g id="ragNode2"><rect x="150" y="55" width="110" height="50" rx="8" fill="var(--surface)" stroke="rgba(56,189,248,.35)" stroke-width="1.5"/><text x="205" y="76" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="9" font-weight="600">Embed API</text><text x="205" y="92" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">text-embedding-004</text></g>
+
+      <g id="ragNode3"><rect x="290" y="55" width="110" height="50" rx="8" fill="var(--surface)" stroke="rgba(244,114,182,.35)" stroke-width="1.5"/><text x="345" y="76" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono" font-size="9" font-weight="600">pgvector Store</text><text x="345" y="92" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">1536-dim HNSW</text></g>
+
+      <g id="ragNode4"><rect x="430" y="55" width="110" height="50" rx="8" fill="var(--surface)" stroke="rgba(52,211,153,.35)" stroke-width="1.5"/><text x="485" y="76" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="9" font-weight="600">ANN Search</text><text x="485" y="92" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Cosine similarity</text></g>
+
+      <g id="ragNode5"><rect x="570" y="55" width="110" height="50" rx="8" fill="var(--surface)" stroke="rgba(167,139,250,.35)" stroke-width="1.5"/><text x="625" y="76" text-anchor="middle" fill="#a78bfa" font-family="JetBrains Mono" font-size="9" font-weight="600">RAG Context</text><text x="625" y="92" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Top-K injected</text></g>
+
+      <g id="ragNode6"><rect x="710" y="55" width="80" height="50" rx="8" fill="var(--surface)" stroke="rgba(56,189,248,.35)" stroke-width="1.5"/><text x="750" y="76" text-anchor="middle" fill="#38bdf8" font-family="JetBrains Mono" font-size="9" font-weight="600">Agent</text><text x="750" y="92" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="8">Coherent output</text></g>
+
+      <!-- Connecting paths with animation -->
+      <path d="M120 80 L148 80" stroke="rgba(167,139,250,.5)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#ahp)"/>
+      <path d="M260 80 L288 80" stroke="rgba(56,189,248,.5)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#ah)"/>
+      <path d="M400 80 L428 80" stroke="rgba(244,114,182,.5)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#ah)"/>
+      <path d="M540 80 L568 80" stroke="rgba(52,211,153,.5)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#ahg)"/>
+      <path d="M680 80 L708 80" stroke="rgba(167,139,250,.5)" stroke-width="1.5" fill="none" class="flow-path" marker-end="url(#ahp)"/>
+
+      <!-- Step labels above -->
+      <text x="65" y="30" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7.5">① Generate</text>
+      <text x="205" y="30" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7.5">② Vectorize</text>
+      <text x="345" y="30" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7.5">③ Store</text>
+      <text x="485" y="30" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7.5">④ Search</text>
+      <text x="625" y="30" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7.5">⑤ Retrieve</text>
+      <text x="750" y="30" text-anchor="middle" fill="#64748b" font-family="JetBrains Mono" font-size="7.5">⑥ Augment</text>
+
+      <!-- Animated signal across full RAG flow -->
+      <circle r="5" fill="#f472b6" filter="url(#glow)" style="filter:drop-shadow(0 0 6px #f472b6)">
+        <animateMotion dur="3.5s" repeatCount="indefinite" path="M120 80 L148 80 L260 80 L288 80 L400 80 L428 80 L540 80 L568 80 L680 80 L708 80"/>
+      </circle>
+    </svg>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══ TOKEN RING ═══ -->
+<section class="section reveal token-ring-section">
+  <div class="sec-label">05 · Génération On-Demand</div>
+  <h2 style="text-align:center">Visualisation du Budget Tokens</h2>
+  <p style="text-align:center;max-width:600px;margin:0 auto 1rem">La génération à la demande permet d'économiser massivement sur les coûts et d'éviter les limites de contexte.</p>
+
+  <svg id="tokenRingSVG" viewBox="0 0 440 220">
+    <defs>
+      <linearGradient id="ringGrad1" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient>
+      <linearGradient id="ringGrad2" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#38bdf8"/></linearGradient>
+    </defs>
+    <!-- Whole-course ring -->
+    <circle cx="130" cy="110" r="80" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="28"/>
+    <circle id="ringBad" cx="130" cy="110" r="80" fill="none" stroke="url(#ringGrad1)" stroke-width="28" stroke-dasharray="502" stroke-dashoffset="502" transform="rotate(-90 130 110)" style="transition:stroke-dashoffset 2s ease"/>
+    <text x="130" y="103" text-anchor="middle" fill="#e2e8f0" font-family="Syne" font-size="18" font-weight="800">150K</text>
+    <text x="130" y="120" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="9">tokens</text>
+    <text x="130" y="215" text-anchor="middle" fill="#f472b6" font-family="JetBrains Mono" font-size="9">❌ Whole course at once</text>
+
+    <!-- Per-topic ring -->
+    <circle cx="310" cy="110" r="80" fill="none" stroke="rgba(255,255,255,.05)" stroke-width="28"/>
+    <circle id="ringGood" cx="310" cy="110" r="80" fill="none" stroke="url(#ringGrad2)" stroke-width="28" stroke-dasharray="502" stroke-dashoffset="502" transform="rotate(-90 310 110)" style="transition:stroke-dashoffset 2s .3s ease"/>
+    <text x="310" y="103" text-anchor="middle" fill="#e2e8f0" font-family="Syne" font-size="18" font-weight="800">8K</text>
+    <text x="310" y="120" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="9">tokens</text>
+    <text x="310" y="215" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="9">✓ Per-topic on-demand</text>
+
+    <!-- Divider -->
+    <line x1="220" y1="30" x2="220" y2="190" stroke="rgba(99,179,237,.1)" stroke-width="1" stroke-dasharray="4,4"/>
+    <text x="220" y="20" text-anchor="middle" fill="#475569" font-family="JetBrains Mono" font-size="9">vs</text>
+
+    <!-- Saving badge -->
+    <rect x="175" y="180" width="90" height="28" rx="8" fill="rgba(52,211,153,.4)" stroke="rgba(52,211,153,.7)" stroke-width="2"/>
+    <text x="220" y="198" text-anchor="middle" fill="#34d399" font-family="JetBrains Mono" font-size="9" font-weight="600">94.7% savings</text>
+  </svg>
+</section>
+
+<hr class="divider">
+
+<!-- ═══ FEATURES ═══ -->
+<section class="section reveal">
+  <div class="sec-label">06 · Feature Set</div>
+  <h2>Platform Capabilities</h2>
+  <div class="feat-grid">
+    <div class="feat"><div class="feat-icon">🗺️</div><div><div class="feat-name">Plans d'Apprentissage IA</div><div class="feat-desc">Curriculum personnalisé sur 4 semaines via l'Agent Architecte.</div></div></div>
+    <div class="feat"><div class="feat-icon">📖</div><div><div class="feat-name">Leçons Approfondies</div><div class="feat-desc">>1000 mots, Markdown, sources vérifiées et vidéos.</div></div></div>
+    <div class="feat"><div class="feat-icon">🧠</div><div><div class="feat-name">Processus de Pensée</div><div class="feat-desc">Visualisation du raisonnement "Chain-of-Thought" de l'IA.</div></div></div>
+    <div class="feat"><div class="feat-icon">🎬</div><div><div class="feat-name">Intégration YouTube</div><div class="feat-desc">Ressources vidéo ciblées via l'Agent Chercheur.</div></div></div>
+    <div class="feat"><div class="feat-icon">📝</div><div><div class="feat-name">Quiz Auto-Évalués</div><div class="feat-desc">Gemini évalue les réponses libres avec un feedback précis.</div></div></div>
+    <div class="feat"><div class="feat-icon">⚗️</div><div><div class="feat-name">Exercices Interactifs</div><div class="feat-desc">Évaluation en temps réel des soumissions par Groq.</div></div></div>
+    <div class="feat"><div class="feat-icon">🔮</div><div><div class="feat-name">Mémoire RAG</div><div class="feat-desc">Couche de cohérence sémantique via pgvector.</div></div></div>
+    <div class="feat"><div class="feat-icon">🔧</div><div><div class="feat-name">jsonrepair</div><div class="feat-desc">Auto-correction des sorties IA pour zéro erreur structurelle.</div></div></div>
+    <div class="feat"><div class="feat-icon">⚡</div><div><div class="feat-name">Génération à la Demande</div><div class="feat-desc">94.7% d'économie de tokens via la création "just-in-time".</div></div></div>
+    <div class="feat"><div class="feat-icon">📊</div><div><div class="feat-name">Analyses de Progrès</div><div class="feat-desc">Détection des points faibles et suggestions de révisions par l'IA.</div></div></div>
+    <div class="feat"><div class="feat-icon">🌐</div><div><div class="feat-name">Sources Multi-Platesformes</div><div class="feat-desc">Citations réelles Wikipédia + Google + YouTube.</div></div></div>
+    <div class="feat"><div class="feat-icon">🎨</div><div><div class="feat-name">Interface Fluide</div><div class="feat-desc">Animations Framer Motion pour une expérience premium.</div></div></div>
+  </div>
+</section>
+
+<hr class="divider">
+
+<!-- ═══ ROADMAP TIMELINE ═══ -->
+<section class="section reveal" id="roadmap">
+  <div class="sec-label">07 · Évolutions Futures</div>
+  <h2>Feuille de Route</h2>
+  <p>Six phases de développement pour transformer l'ALP en une intelligence éducative totalement autonome et multimodale.</p>
+
+  <div class="timeline" id="timeline">
+
+    <div class="tl-item">
+      <div class="tl-left">
+        <div class="tl-card">
+          <h3 style="color:var(--c1)">Streaming Temps Réel</h3>
+          <ul><li>Livraison token-par-token via Server-Sent Events</li><li>Révélation progressive des leçons</li><li>Validation par le Critic en continu</li></ul>
+        </div>
+      </div>
+      <div class="tl-mid"><div class="tl-dot" style="background:var(--c1)"></div><span class="tl-phase" style="color:var(--c1)">T3 2026</span></div>
+      <div class="tl-right"></div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-left"></div>
+      <div class="tl-mid"><div class="tl-dot" style="background:var(--c2)"></div><span class="tl-phase" style="color:var(--c2)">T4 2026</span></div>
+      <div class="tl-right">
+        <div class="tl-card">
+          <h3 style="color:var(--c2)">Moteur de Gamification</h3>
+          <ul><li>XP, séries, progression par niveaux</li><li>Badges de réussite générés par l'IA</li><li>Ajustement dynamique de la difficulté</li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-left">
+        <div class="tl-card">
+          <h3 style="color:var(--c3)">Support LLM Local</h3>
+          <ul><li>Intégration Ollama pour déploiement sur site</li><li>Pattern d'adaptateur agnostique au modèle</li><li>Mode entreprise sécurisé (Air-gapped)</li></ul>
+        </div>
+      </div>
+      <div class="tl-mid"><div class="tl-dot" style="background:var(--c3)"></div><span class="tl-phase" style="color:var(--c3)">T1 2027</span></div>
+      <div class="tl-right"></div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-left"></div>
+      <div class="tl-mid"><div class="tl-dot" style="background:var(--c4)"></div><span class="tl-phase" style="color:var(--c4)">T2 2027</span></div>
+      <div class="tl-right">
+        <div class="tl-card">
+          <h3 style="color:var(--c4)">Apprentissage Collaboratif</h3>
+          <ul><li>Plans partagés + RAG de groupe</li><li>Révision par les pairs avec modération IA</li><li>Tableau blanc collaboratif WebRTC</li></ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-left">
+        <div class="tl-card">
+          <h3 style="color:var(--c5)">Agent de Curriculum Autonome</h3>
+          <ul><li>Auto-amélioration selon les échecs aux quiz</li><li>Révision automatique du programme</li><li>Tests A/B sur les variantes de leçons</li></ul>
+        </div>
+      </div>
+      <div class="tl-mid"><div class="tl-dot" style="background:var(--c5)"></div><span class="tl-phase" style="color:var(--c5)">H2 2027</span></div>
+      <div class="tl-right"></div>
+    </div>
+
+    <div class="tl-item">
+      <div class="tl-left"></div>
+      <div class="tl-mid"><div class="tl-dot" style="background:var(--c1)"></div><span class="tl-phase" style="color:var(--c1)">2028</span></div>
+      <div class="tl-right">
+        <div class="tl-card">
+          <h3 style="color:var(--c1)">Expansion Multimodale</h3>
+          <ul><li>Illustrations IA générées via Imagen</li><li>Narration vocale avec synthèse TTS</li><li>Modules AR pour concepts spatiaux</li></ul>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<footer>
+  <div class="logo" style="font-size:1.1rem;margin-bottom:.75rem;display:inline-block">ALP ◆ Plateforme d'Apprentissage Agentique</div>
+  <p>Document d'Architecture Technique · Édition Premium 2026</p>
+  <p style="margin-top:.5rem">Gemini 2.0 Flash · Groq Llama 3.3-70b · pgvector · React 18 · Node.js ESM · TypeORM · PostgreSQL</p>
+</footer>
+
+<script>
+// ─── INTERSECTION OBSERVER FOR REVEAL ───
+const revealObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if(e.isIntersecting) e.target.classList.add('visible') })
+}, { threshold: 0.1 })
+document.querySelectorAll('.reveal').forEach(el => revealObs.observe(el))
+
+// ─── STAT COUNTERS ───
+const counterObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(!e.isIntersecting) return
+    e.target.querySelectorAll('[data-target]').forEach(el => {
+      const target = parseInt(el.dataset.target)
+      const suffix = el.dataset.suffix || ''
+      let start = 0
+      const dur = 1800
+      const step = timestamp => {
+        if(!start) start = timestamp
+        const progress = Math.min((timestamp - start) / dur, 1)
+        const ease = 1 - Math.pow(1 - progress, 3)
+        el.textContent = Math.floor(ease * target) + suffix
+        if(progress < 1) requestAnimationFrame(step)
+        else el.textContent = target + suffix
+      }
+      requestAnimationFrame(step)
+    })
+    counterObs.unobserve(e.target)
+  })
+}, { threshold: 0.3 })
+const statsEl = document.getElementById('stats')
+if(statsEl) counterObs.observe(statsEl)
+
+// ─── BAR CHART ───
+const barObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(!e.isIntersecting) return
+    e.target.querySelectorAll('.bar').forEach((b, i) => {
+      setTimeout(() => b.classList.add('animated'), i * 120)
+    })
+    barObs.unobserve(e.target)
+  })
+}, { threshold: 0.3 })
+const bc = document.getElementById('barChart')
+if(bc) barObs.observe(bc)
+
+// ─── DONUT CHART ───
+const circumference = 2 * Math.PI * 50
+const segments = [
+  { id:'dc1', pct:0.55, offset:0 },
+  { id:'dc2', pct:0.25, offset:0 },
+  { id:'dc3', pct:0.12, offset:0 },
+  { id:'dc4', pct:0.08, offset:0 }
+]
+// Compute cumulative offsets
+let cum = 0
+segments.forEach(s => { s.startOffset = cum; cum += s.pct })
+
+const donutObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(!e.isIntersecting) return
+    segments.forEach(s => {
+      const el = document.getElementById(s.id)
+      if(!el) return
+      const arc = s.pct * circumference
+      const gap = circumference - arc
+      el.style.strokeDasharray = `${arc} ${gap}`
+      el.style.strokeDashoffset = `${-s.startOffset * circumference}`
+      el.style.transform = `rotate(-90deg)`
+      el.style.transformOrigin = `70px 70px`
+    })
+    donutObs.unobserve(e.target)
+  })
+}, { threshold: 0.3 })
+const donut = document.getElementById('donutSVG')
+if(donut) donutObs.observe(donut)
+
+// ─── SPARKLINE ───
+const sparkData = [
+  {w:'W1D1',v:62},{w:'W1D5',v:67},{w:'W2D1',v:71},{w:'W2D5',v:74},
+  {w:'W3D1',v:79},{w:'W3D5',v:83},{w:'W4D1',v:88},{w:'W4D5',v:93}
+]
+function buildSparkline() {
+  const w = 300, h = 90, pad = 20
+  const minV = 55, maxV = 100
+  const xs = sparkData.map((_, i) => pad + i * (w - pad * 2) / (sparkData.length - 1))
+  const ys = sparkData.map(d => pad + (1 - (d.v - minV) / (maxV - minV)) * (h - pad * 2))
+  const pts = xs.map((x, i) => `${x},${ys[i]}`).join(' L')
+  document.getElementById('sparkLine').setAttribute('d', `M ${pts}`)
+  document.getElementById('sparkFill').setAttribute('d', `M ${pts} L ${xs[xs.length-1]},${h} L ${xs[0]},${h} Z`)
+
+  const dotsG = document.getElementById('sparkDots')
+  const labsG = document.getElementById('sparkLabels')
+  dotsG.innerHTML = ''; labsG.innerHTML = ''
+  sparkData.forEach((d, i) => {
+    const dot = document.createElementNS('http://www.w3.org/2000/svg','circle')
+    dot.setAttribute('cx', xs[i]); dot.setAttribute('cy', ys[i]); dot.setAttribute('r','4')
+    dot.setAttribute('fill','#050811'); dot.setAttribute('stroke','#38bdf8'); dot.setAttribute('stroke-width','2')
+    dotsG.appendChild(dot)
+    if(i % 2 === 0) {
+      const lab = document.createElementNS('http://www.w3.org/2000/svg','text')
+      lab.setAttribute('x', xs[i]); lab.setAttribute('y', h - 2); lab.setAttribute('text-anchor','middle')
+      lab.setAttribute('fill','#475569'); lab.setAttribute('font-family','JetBrains Mono'); lab.setAttribute('font-size','7.5')
+      lab.textContent = d.w
+      labsG.appendChild(lab)
+    }
+  })
+}
+buildSparkline()
+
+const sparkObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(!e.isIntersecting) return
+    const line = document.getElementById('sparkLine')
+    if(line) { line.style.strokeDashoffset = '400'; setTimeout(() => line.style.strokeDashoffset = '0', 100) }
+    sparkObs.unobserve(e.target)
+  })
+}, { threshold: 0.3 })
+const spark = document.getElementById('sparkSVG')
+if(spark) sparkObs.observe(spark)
+
+// ─── GAUGES ───
+const gaugeData = [
+  { id:'g1p', vid:'g1v', val:98, color:'#34d399' },
+  { id:'g2p', vid:'g2v', val:99, color:'#38bdf8' },
+  { id:'g3p', vid:'g3v', val:97, color:'#a78bfa' },
+  { id:'g4p', vid:'g4v', val:100, color:'#fb923c' }
+]
+const gaugeObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(!e.isIntersecting) return
+    gaugeData.forEach((g, i) => {
+      const path = document.getElementById(g.id)
+      const txt = document.getElementById(g.vid)
+      if(!path || !txt) return
+      const total = 94.2 // half circumference for semicircle
+      setTimeout(() => {
+        path.style.strokeDashoffset = total * (1 - g.val / 100)
+        // Animate text
+        let start = null
+        const step = ts => {
+          if(!start) start = ts
+          const prog = Math.min((ts - start) / 1200, 1)
+          txt.textContent = Math.floor(prog * g.val) + '%'
+          if(prog < 1) requestAnimationFrame(step)
+          else txt.textContent = g.val + '%'
+        }
+        requestAnimationFrame(step)
+      }, i * 150)
+    })
+    gaugeObs.unobserve(e.target)
+  })
+}, { threshold: 0.3 })
+const gw = document.getElementById('gaugesWrap')
+if(gw) gaugeObs.observe(gw)
+
+// ─── TOKEN RINGS ───
+const ringObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(!e.isIntersecting) return
+    setTimeout(() => {
+      document.getElementById('ringBad').style.strokeDashoffset = '0'  // 100% full = bad
+      document.getElementById('ringGood').style.strokeDashoffset = '475' // ~5.3% = tiny = good
+    }, 200)
+    ringObs.unobserve(e.target)
+  })
+}, { threshold: 0.3 })
+const ringSection = document.getElementById('tokenRingSVG')
+if(ringSection) ringObs.observe(ringSection)
+
+// ─── ANIMATED PIPELINE ───
+const pipelineSteps = document.querySelectorAll('.pa-step')
+let activeStep = -1
+
+const stepRevealObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(!e.isIntersecting) return
+    pipelineSteps.forEach((s, i) => {
+      setTimeout(() => {
+        s.classList.add('visible')
+        if(i === 0) s.classList.add('active')
+      }, i * 180)
+    })
+    stepRevealObs.unobserve(e.target)
+    startPipelineAnim()
+  })
+}, { threshold: 0.15 })
+const pipelineAnim = document.getElementById('pipelineAnim')
+if(pipelineAnim) stepRevealObs.observe(pipelineAnim)
+
+function jumpToStep(idx) {
+  pipelineSteps.forEach(s => s.classList.remove('active'))
+  pipelineSteps[idx].classList.add('active')
+  activeStep = idx
+}
+
+function startPipelineAnim() {
+  let cur = 0
+  const advance = () => {
+    pipelineSteps.forEach(s => s.classList.remove('active'))
+    pipelineSteps[cur].classList.add('active')
+    activeStep = cur
+    cur = (cur + 1) % pipelineSteps.length
+  }
+  advance()
+  setInterval(advance, 2200)
+}
+
+// ─── TIMELINE REVEAL ───
+const tlObs = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if(e.isIntersecting) {
+      e.target.classList.add('visible')
+      tlObs.unobserve(e.target)
+    }
+  })
+}, { threshold: 0.2 })
+document.querySelectorAll('.tl-item').forEach((el, i) => {
+  el.style.transitionDelay = `${i * 0.1}s`
+  tlObs.observe(el)
+})
+</script>
+</body>
+</html>

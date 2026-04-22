@@ -3,6 +3,7 @@ import Home from "./components/Home";
 import Dashboard from "./components/Dashboard";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import LoginScreen from "./components/LoginScreen";
+import ErrorBoundary from "./components/ErrorBoundary";
 
 function AuthWrapper({ children }: { children: React.ReactNode }) {
   const { user, logout } = useAuth();
@@ -38,14 +39,16 @@ function AuthWrapper({ children }: { children: React.ReactNode }) {
 function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <AuthWrapper>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-          </Routes>
-        </AuthWrapper>
-      </BrowserRouter>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <AuthWrapper>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+            </Routes>
+          </AuthWrapper>
+        </BrowserRouter>
+      </ErrorBoundary>
     </AuthProvider>
   );
 }

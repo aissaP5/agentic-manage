@@ -14,14 +14,22 @@ interface QuizProps {
     answer: string;
     explanation: string;
   }[];
+  onComplete?: (achievement?: any) => void;
 }
 
-export default function QuizComponent({ topicName, quiz }: QuizProps) {
+export default function QuizComponent({ topicName, quiz, onComplete }: QuizProps) {
   const { user } = useAuth();
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({});
   const [submitted, setSubmitted] = useState<Record<number, boolean>>({});
 
-  if (!quiz || quiz.length === 0) return null;
+  if (!quiz || quiz.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-12 text-center bg-white rounded-2xl border-2 border-dashed border-slate-100">
+        <Trophy size={48} className="text-slate-200 mb-4" />
+        <p className="text-slate-500 font-medium">The knowledge check for this module is being drafted by the AI examiner.</p>
+      </div>
+    );
+  }
 
   const handleSelect = (qIdx: number, option: string) => {
     if (submitted[qIdx]) return;
@@ -37,7 +45,7 @@ export default function QuizComponent({ topicName, quiz }: QuizProps) {
   const correctCount = Object.entries(submitted)
     .filter(([idx]) => {
       const i = Number(idx);
-      return selectedAnswers[i] === quiz[i].answer;
+      return selectedAnswers[i] === quiz[i]?.answer;
     }).length;
 
   useEffect(() => {
@@ -52,7 +60,10 @@ export default function QuizComponent({ topicName, quiz }: QuizProps) {
           topicName: topicName,
           quizScore: xpScore
         })
-      }).catch(err => console.error("Failed to save progress", err));
+      })
+      .then(res => res.json())
+      .then((data) => onComplete?.(data.achievement))
+      .catch(err => console.error("Failed to save progress", err));
     }
   }, [answeredCount, quiz.length, user, correctCount, topicName]);
 
@@ -116,7 +127,7 @@ export default function QuizComponent({ topicName, quiz }: QuizProps) {
         )}
       </AnimatePresence>
 
-      {quiz.map((q, idx) => {
+      {Array.isArray(quiz) && quiz.map((q, idx) => {
         const isSubmitted = submitted[idx];
         const selected = selectedAnswers[idx];
         const isCorrect = selected === q.answer;

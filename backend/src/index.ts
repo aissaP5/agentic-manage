@@ -16,11 +16,17 @@ app.post("/api/learn", LearningController.createLearningPlan);
 app.get("/api/users/:userId/plans", LearningController.getUserPlans);
 app.put("/api/plans/:id", LearningController.updatePlan);
 app.post("/api/plans/:id/refine", LearningController.chatRefine);
+app.post("/api/plans/:id/topics/generate", LearningController.generateTopicDetails);
+app.post("/api/plans/:id/phases/:phaseIndex/exam", LearningController.generatePhaseExam);
+app.delete("/api/plans/:id", LearningController.deletePlan);
 
 // Auth & Progress Routes
 app.post("/api/users/login", UserController.login);
 app.get("/api/users/:id/stats", UserController.getStats);
+app.get("/api/users/:id/achievements", UserController.getAchievements);
 app.post("/api/progress/quiz", ProgressController.completeQuiz);
+app.post("/api/progress/evaluate", ProgressController.evaluateExercise);
+app.post("/api/progress/phase-exam", ProgressController.completePhaseExam);
 
 const PORT = process.env.PORT || 3000;
 

@@ -3,9 +3,11 @@ import { useState, useEffect } from "react";
 import PlanDisplay from "./PlanDisplay";
 import LessonViewer from "./LessonViewer";
 import TutorChat from "./TutorChat";
+import ErrorBoundary from "./ErrorBoundary";
 import { motion, AnimatePresence } from "framer-motion";
-import { PlusCircle, Target, BookMarked, ChevronLeft, ChevronRight, Layout } from "lucide-react";
+import { PlusCircle, Target, BookMarked, ChevronLeft, ChevronRight, Layout, Sparkles, Trash2, Trophy } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import axios from "axios";
 import clsx from "clsx";
 
 export default function Dashboard() {
@@ -18,7 +20,10 @@ export default function Dashboard() {
   const [allPlans, setAllPlans] = useState<any[]>([]);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [stats, setStats] = useState({ xp: 0, level: "Beginner", mastered: 0 });
+  const [achievements, setAchievements] = useState<any[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [activeExam, setActiveExam] = useState<any>(null);
+  const [examLoading, setExamLoading] = useState(false);
 
   // Fetch Stats
   const fetchStats = () => {
@@ -29,6 +34,11 @@ export default function Dashboard() {
             if (data && typeof data.xp === "number") setStats(data);
         })
         .catch(err => console.error("Failed to load stats", err));
+
+      fetch(`http://localhost:3000/api/users/${user.id}/achievements`)
+        .then(res => res.json())
+        .then(data => setAchievements(data))
+        .catch(err => console.error("Failed to load achievements", err));
     }
   };
 
@@ -48,11 +58,51 @@ export default function Dashboard() {
         .catch(err => console.error("Failed to load plans", err));
     }
   };
+ 
+  const handleDeletePlan = async (e: React.MouseEvent, id: number) => {
+    e.stopPropagation();
+    console.log("🗑️ Attempting to delete plan with ID:", id);
+    if (!window.confirm("Are you sure you want to delete this course?")) return;
+    
+    try {
+      const resp = await axios.delete(`http://localhost:3000/api/plans/${id}`);
+      console.log("✅ Delete response from server:", resp.data);
+      setAllPlans(prev => prev.filter(p => p.id !== id));
+      if (currentPlanId === id) {
+        setActivePlan(null);
+        setCurrentPlanId(null);
+      }
+      alert("Plan deleted successfully.");
+    } catch (err: any) {
+      console.error("❌ Failed to delete plan:", err.response?.data || err.message);
+      alert("Deletion failed. See console for details.");
+    }
+  };
 
   useEffect(() => {
     fetchStats();
     fetchPlans();
+    
+    // Bind global callback for PlanDisplay
+    (window as any).onStartPhaseExam = handleStartExam;
+    return () => { delete (window as any).onStartPhaseExam; };
   }, [user]);
+
+  const handleStartExam = async (phaseIndex: number, phase: any) => {
+    setExamLoading(true);
+    try {
+      const res = await axios.post(`http://localhost:3000/api/plans/${currentPlanId}/phases/${phaseIndex}/exam`);
+      setActiveExam({
+        phaseIndex,
+        data: res.data.data
+      });
+    } catch (err) {
+      console.error("Failed to generate exam", err);
+      alert("Failed to generate exam. Please try again.");
+    } finally {
+      setExamLoading(false);
+    }
+  };
 
   if (!user) return <Navigate to="/" replace />;
   if (!activePlan && allPlans.length === 0) return <Navigate to="/" replace />;
@@ -60,8 +110,18 @@ export default function Dashboard() {
   const currentPlan = activePlan || allPlans[0]?.planData;
   if (!currentPlan) return null;
 
-  const activeContent = currentPlan.content.find((c: any) => c.topic === activeTopic) || currentPlan.content[0];
-  const aiGeneratedTopics = currentPlan.content.length;
+  const contentArray = Array.isArray(currentPlan.content) ? currentPlan.content : [];
+  
+  // Find real content OR create a placeholder if the user clicked a topic that isn't generated yet
+  let activeContent = contentArray.find((c: any) => c.topic === activeTopic);
+  
+  if (!activeContent && activeTopic) {
+    activeContent = { topic: activeTopic, sections: [] };
+  } else if (!activeContent) {
+    activeContent = contentArray[0] || { topic: "Welcome", sections: [] };
+  }
+
+  const aiGeneratedTopics = contentArray.length;
 
   return (
     <div className="flex flex-col lg:flex-row gap-6 min-h-[calc(100vh-120px)] relative">
@@ -91,22 +151,30 @@ export default function Dashboard() {
              {allPlans.map((p) => {
                const isSelected = p.id === currentPlanId;
                return (
-                 <button
-                   key={p.id}
-                   onClick={() => {
-                     setActivePlan(p.planData);
-                     setCurrentPlanId(p.id);
-                     setActiveTopic(null);
-                   }}
-                   className={clsx(
-                     "w-full text-left p-3 rounded-xl text-sm font-bold transition-all border",
-                     isSelected 
-                       ? "bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
-                       : "bg-white border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-                   )}
-                 >
-                   {p.topic}
-                 </button>
+                  <div key={p.id} className="group relative">
+                    <button
+                      onClick={() => {
+                        setActivePlan(p.planData);
+                        setCurrentPlanId(p.id);
+                        setActiveTopic(null);
+                      }}
+                      className={clsx(
+                        "w-full text-left p-3 pr-10 rounded-xl text-sm font-bold transition-all border flex flex-col",
+                        isSelected 
+                          ? "bg-blue-50 border-blue-200 text-blue-700 shadow-sm"
+                          : "bg-white border-transparent text-slate-500 hover:bg-slate-50 hover:text-slate-800"
+                      )}
+                    >
+                      <span className="truncate">{p.topic}</span>
+                      <span className="text-[10px] opacity-50 font-normal">{new Date(p.createdAt).toLocaleDateString()}</span>
+                    </button>
+                    <button 
+                      onClick={(e) => handleDeletePlan(e, p.id)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity z-10"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
                )
              })}
           </div>
@@ -147,6 +215,36 @@ export default function Dashboard() {
             </div>
           </div>
 
+          {/* Achievements Sidebar Section */}
+          <div className="bg-white border border-slate-200 p-6 rounded-2xl shadow-sm">
+            <div className="flex items-center gap-2 mb-4">
+              <Trophy className="text-amber-500" size={20} />
+              <h3 className="font-bold text-slate-800">Achievements</h3>
+            </div>
+            {achievements.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">No achievements yet. Complete your first module!</p>
+            ) : (
+              <div className="space-y-3">
+                {achievements.slice(0, 3).map((ach, i) => (
+                  <div key={i} className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg border border-slate-100">
+                    <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600 shrink-0">
+                      <Trophy size={14} />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-slate-800 truncate">{ach.title}</div>
+                      <div className="text-[10px] text-slate-500 truncate">{ach.description}</div>
+                    </div>
+                  </div>
+                ))}
+                {achievements.length > 3 && (
+                  <button className="text-[10px] font-bold text-blue-600 hover:underline w-full text-center mt-2">
+                    View all {achievements.length} achievements
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+
           {/* Current Plan Overview */}
           <div className="bg-white/80 backdrop-blur-sm p-6 rounded-2xl shadow-sm border border-slate-200">
             <div className="flex items-center gap-3 mb-4">
@@ -162,14 +260,30 @@ export default function Dashboard() {
           <PlanDisplay 
             plan={currentPlan.plan} 
             onSelectTopic={setActiveTopic} 
-            activeTopic={activeTopic || activeContent.topic} 
+            activeTopic={activeTopic || activeContent?.topic || ""} 
           />
         </div>
 
         <div className="w-full lg:w-2/3">
           {activeContent ? (
             <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} key={activeContent.topic}>
-               <LessonViewer content={activeContent} />
+               <ErrorBoundary>
+                 <LessonViewer 
+                   content={activeContent} 
+                   planId={currentPlanId}
+                   onActionComplete={(_achievement?: any) => fetchStats()}
+                   onTopicGenerated={(newTopicDetails) => {
+                      setActivePlan((prev: any) => {
+                        const updated = { ...prev };
+                        updated.content = updated.content.filter((c: any) => c.topic !== newTopicDetails.topic);
+                        updated.content.push(newTopicDetails);
+                        return updated;
+                      });
+                      // Also update allPlans to persist in session
+                      setAllPlans(prev => prev.map(p => p.id === currentPlanId ? { ...p, planData: { ...p.planData, content: [...p.planData.content.filter((c: any) => c.topic !== newTopicDetails.topic), newTopicDetails] } } : p));
+                   }}
+                 />
+               </ErrorBoundary>
             </motion.div>
           ) : (
             <div className="p-8 text-center text-slate-500 bg-white rounded-xl border border-slate-200">
@@ -188,6 +302,40 @@ export default function Dashboard() {
           setAllPlans(prev => prev.map(p => p.id === currentPlanId ? { ...p, planData: updatedPlan } : p));
         }} 
       />
+
+      {/* Phase Exam Overlay */}
+      <AnimatePresence>
+        {(activeExam || examLoading) && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-12 bg-slate-900/90 backdrop-blur-md"
+          >
+            <div className="w-full max-w-3xl relative">
+              {examLoading ? (
+                <div className="bg-white rounded-3xl p-20 flex flex-col items-center justify-center text-center shadow-2xl">
+                  <div className="w-20 h-20 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-8"></div>
+                  <h2 className="text-2xl font-black text-slate-800 uppercase tracking-tighter">AI Examiner is drafting your test...</h2>
+                  <p className="text-slate-400 mt-2 font-medium">Analyzing course topics to generate challenging questions.</p>
+                </div>
+              ) : (
+                <PhaseExamComponent 
+                  planId={currentPlanId!}
+                  phaseIndex={activeExam.phaseIndex}
+                  exam={activeExam.data}
+                  onCancel={() => setActiveExam(null)}
+                  onComplete={(achievement) => {
+                    setActiveExam(null);
+                    if (achievement) fetchStats();
+                  }}
+                />
+              )}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
+import PhaseExamComponent from "./PhaseExamComponent";

@@ -11,11 +11,18 @@ interface PlanDisplayProps {
 export default function PlanDisplay({ plan, onSelectTopic, activeTopic }: PlanDisplayProps) {
   return (
     <div className="relative">
+      {(!plan || plan.length === 0) && (
+        <div className="flex flex-col items-center justify-center p-12 text-center">
+            <Target size={48} className="text-slate-300 mb-4" />
+            <h3 className="text-lg font-bold text-slate-500">No phases generated yet.</h3>
+            <p className="text-slate-400 text-sm">Your curriculum structure is still forming.</p>
+        </div>
+      )}
       {/* Central spine line */}
       <div className="absolute left-6 top-8 bottom-8 w-1 bg-gradient-to-b from-blue-200 via-indigo-200 to-slate-100 rounded-full z-0"></div>
 
       <div className="space-y-8 relative z-10">
-        {plan.map((phase, wIdx) => (
+        {(plan || []).map((phase, wIdx) => (
           <div key={wIdx} className="relative">
             {/* Week Badge */}
             <div className="flex items-center gap-4 mb-4">
@@ -29,7 +36,7 @@ export default function PlanDisplay({ plan, onSelectTopic, activeTopic }: PlanDi
 
             {/* Topics */}
             <div className="pl-6 space-y-4">
-              {phase.topics.map((topic: string, tIdx: number) => {
+              {(phase.topics || []).map((topic: string, tIdx: number) => {
                 const isActive = topic === activeTopic;
                 const isCompleted = false; // Add progress logic here later if needed
 
@@ -76,6 +83,14 @@ export default function PlanDisplay({ plan, onSelectTopic, activeTopic }: PlanDi
                   </motion.div>
                 );
               })}
+              <div className="pt-2">
+                <button
+                  onClick={() => (window as any).onStartPhaseExam?.(wIdx, phase)}
+                  className="w-full mt-2 p-3 bg-slate-100 hover:bg-slate-200 border-2 border-dashed border-slate-200 rounded-xl text-xs font-black text-slate-500 uppercase tracking-widest flex items-center justify-center gap-2 transition-all hover:border-blue-300 hover:text-blue-600"
+                >
+                  <GraduationCap size={16} /> Phase Exam
+                </button>
+              </div>
             </div>
           </div>
         ))}
@@ -83,3 +98,4 @@ export default function PlanDisplay({ plan, onSelectTopic, activeTopic }: PlanDi
     </div>
   );
 }
+import { GraduationCap } from "lucide-react";

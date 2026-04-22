@@ -1,31 +1,164 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { jsonrepair } from 'jsonrepair';
+import * as dotenv from "dotenv";
 import OpenAI from "openai";
 import { KnowledgeService } from "./KnowledgeService.js";
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_API_KEY");
-const grokClient = process.env.GROK_API_KEY ? new OpenAI({
-  apiKey: process.env.GROK_API_KEY,
-  baseURL: "https://api.x.ai/v1",
+const groqClient = process.env.GROQ_API_KEY ? new OpenAI({
+  apiKey: process.env.GROQ_API_KEY,
+  baseURL: "https://api.groq.com/openai/v1",
 }) : null;
 
-// Mock Tool Functions for the Resource Agent
-// Real-World Researcher Agent Tool (Wikipedia API)
-const searchWikipedia = async (query: string) => {
-  try {
-    const res = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&utf8=&format=json`);
-    const data = await res.json();
-    if (!data?.query?.search) return [];
+// Tool Definitions for Function Calling
+const TOOLS = [
+  {
+    functionDeclarations: [
+      {
+        name: "searchWikipedia",
+        description: "Search Wikipedia for a specific topic to get factual background information.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            query: {
+              type: SchemaType.STRING,
+              description: "The search term to look up on Wikipedia.",
+            },
+          },
+          required: ["query"],
+        },
+      },
+      {
+        name: "searchGoogle",
+        description: "Search Google for the latest resources, links, and technical articles.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            query: {
+              type: SchemaType.STRING,
+              description: "The search term to look up on Google.",
+            },
+          },
+          required: ["query"],
+        },
+      },
+      {
+        name: "searchYouTube",
+        description: "Search YouTube for educational video tutorials. Returns real YouTube video URLs. Use this to find video resources for the learning plan.",
+        parameters: {
+          type: SchemaType.OBJECT,
+          properties: {
+            query: {
+              type: SchemaType.STRING,
+              description: "The search term to look up on YouTube.",
+            },
+          },
+          required: ["query"],
+        },
+      },
+    ],
+  },
+];
+
+
+// Implementation of the tools
+const toolActions: Record<string, Function> = {
+  searchWikipedia: async (args: { query: string }) => {
+    try {
+      // Increase search depth (top 4 instead of 2)
+      const res = await fetch(`https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(args.query)}&utf8=&format=json&srlimit=4`);
+      const data = await res.json();
+      if (!data?.query?.search) return { results: [] };
+      return {
+        results: data.query.search.map((item: any) => ({
+          title: item.title + " - Wikipedia",
+          link: `https://en.wikipedia.org/?curid=${item.pageid}`,
+          description: item.snippet.replace(/(<([^>]+)>)/gi, "") + "..."
+        }))
+      };
+    } catch (err) {
+      console.warn("Wikipedia tool failed:", err);
+      return { error: "Wikipedia search failed", results: [] };
+    }
+  },
+  searchGoogle: async (args: { query: string }) => {
+    const apiKey = process.env.GOOGLE_SEARCH_API_KEY;
+    const cx = process.env.GOOGLE_SEARCH_CX;
     
-    // Process top 2 results
-    return data.query.search.slice(0, 2).map((item: any) => ({
-      title: item.title + " - Wikipedia",
-      link: `https://en.wikipedia.org/?curid=${item.pageid}`,
-      // Use regex to strip HTML tags from the snippet
-      description: item.snippet.replace(/(<([^>]+)>)/gi, "") + "..."
-    }));
-  } catch (err) {
-    console.warn("Wikipedia search failed:", err);
-    return [];
+    // Silent fail if no credentials (avoids crashing the agent session)
+    if (!apiKey || !cx || apiKey.startsWith('YOUR')) {
+        return { results: [], notice: "Google Search disabled (no credentials)" };
+    }
+
+    try {
+      const res = await fetch(`https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(args.query)}&num=3`);
+      const data = await res.json();
+      
+      if (data.error) {
+        console.warn("Google Search API Error (likely billing):", data.error.message);
+        return { results: [] }; // Return empty instead of error to keep agent flowing
+      }
+
+      if (!data?.items) return { results: [] };
+      return {
+        results: data.items.map((item: any) => ({
+          title: item.title,
+          link: item.link,
+          description: item.snippet
+        }))
+      };
+    } catch (err) {
+      return { results: [] };
+    }
+  },
+  searchYouTube: async (args: { query: string }) => {
+    try {
+      console.log(`🎬 YouTube Search: "${args.query}"`);
+      const searchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(args.query + " tutorial")}`;
+      const res = await fetch(searchUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept-Language': 'en-US,en;q=0.9'
+        }
+      });
+      const html = await res.text();
+      
+      // Extract video IDs from the HTML - searching for common patterns in initialData
+      const videoIdMatches = html.match(/"videoId":"([a-zA-Z0-9_-]{11})"/g) || 
+                             html.match(/\/watch\?v=([a-zA-Z0-9_-]{11})/g) || [];
+      const seen = new Set<string>();
+      const results: any[] = [];
+      
+      for (const match of videoIdMatches) {
+        const id = match.match(/"videoId":"([a-zA-Z0-9_-]{11})"/)?.[1];
+        if (id && !seen.has(id) && results.length < 4) {
+          seen.add(id);
+          results.push({
+            title: `YouTube Tutorial: ${args.query}`,
+            link: `https://www.youtube.com/watch?v=${id}`,
+            description: `Video tutorial about ${args.query}`
+          });
+        }
+      }
+      
+      // Also extract titles if available
+      const titleMatches = html.match(/"title":{"runs":\[{"text":"(.*?)"}/g) || [];
+      for (let i = 0; i < Math.min(titleMatches.length, results.length); i++) {
+        const matchStr = titleMatches[i];
+        if (matchStr) {
+          const titleMatch = matchStr.match(/"text":"(.*?)"/);
+          if (titleMatch && titleMatch[1]) {
+            results[i].title = titleMatch[1];
+          }
+        }
+      }
+      
+      console.log(`🎬 Found ${results.length} YouTube videos`);
+      return { results };
+    } catch (err) {
+      console.warn("YouTube search failed:", err);
+      return { results: [] };
+    }
   }
 };
 
@@ -34,6 +167,7 @@ const RESPONSE_SCHEMA = {
   properties: {
     level: { type: SchemaType.STRING },
     goal: { type: SchemaType.STRING },
+    estimatedDuration: { type: SchemaType.STRING },
     plan: {
       type: SchemaType.ARRAY,
       items: {
@@ -54,8 +188,10 @@ const RESPONSE_SCHEMA = {
         type: SchemaType.OBJECT,
         properties: {
           topic: { type: SchemaType.STRING },
-          reasoning: { type: SchemaType.STRING }, // Chain of thought block
-          sections: { // Replacing the monolithic explanation
+          reasoning: { type: SchemaType.STRING },
+          mermaidDiagram: { type: SchemaType.STRING },
+          labTemplate: { type: SchemaType.STRING },
+          sections: {
             type: SchemaType.ARRAY,
             items: {
               type: SchemaType.OBJECT,
@@ -108,205 +244,740 @@ const RESPONSE_SCHEMA = {
             }
           }
         },
-        required: ["topic", "reasoning", "sections", "resources", "quiz", "exercises"]
+        required: ["topic", "reasoning", "mermaidDiagram", "labTemplate", "sections", "resources", "quiz", "exercises"]
       }
     }
   },
-  required: ["level", "goal", "plan", "content"]
+  required: ["level", "goal", "estimatedDuration", "plan", "content"]
 };
 
 export class AgentOrchestrator {
   
-  static async generateLearningPlan(topic: string, duration: string) {
-    const aiProviders = [];
-    
-    // If Grok is available, try it first as it provides exceptional performance
-    if (grokClient) {
-      aiProviders.push({ name: "grok-beta", provider: "grok" });
-    }
-    
-    // Add Gemini fallbacks
-    aiProviders.push(
-      { name: "gemini-2.5-flash", provider: "gemini" },
-      { name: "gemini-flash-latest", provider: "gemini" },
-      { name: "gemini-2.0-flash", provider: "gemini" }
-    );
+  /**
+   * Generates a learning plan with Multi-Agent collaboration (Architect + Researcher + Critic)
+   */
+  static async generateLearningPlan(topic: string, duration?: string) {
+    const aiProviders = [
+      { name: "gemini-2.0-flash", provider: "gemini" },
+      { name: "llama-3.3-70b-versatile", provider: "groq" },
+      { name: "llama-3.1-8b-instant", provider: "groq" }
+    ];
 
     let lastError = null;
-    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-    // Retrieval-Augmented Generation (RAG): Memory Search
+    // Phase 1: Retrieval-Augmented Generation (RAG)
+    console.log(`🧠 Agent [Architect]: Recalling memories for "${topic}"...`);
     const memories = await KnowledgeService.search(topic, 3);
     const contextString = memories.length > 0 
-        ? `\nPREVIOUS KNOWLEDGE CONTEXT CONCERNING THIS TOPIC:\n${memories.map((m: any) => `- ${m.content}`).join("\n")}\nUse this context to inform your plan if relevant.`
+        ? `\nPREVIOUS KNOWLEDGE CONTEXT:\n${memories.map((m: any) => `- ${m.content}`).join("\n")}\n`
         : "";
 
     const prompt = `
-You are an advanced Agentic AI System acting as an elite educator.
+You are an Expert Education Architect AI. Generate a complete, rich learning plan.
+TOPIC: "${topic}"
+DURATION: ${duration || "UNSPECIFIED (You must propose the optimal duration based on topic complexity - e.g. 2 weeks, 1 month, etc.)"}
 
-Topic: ${topic}
-Time available: ${duration}${contextString}
-
-Your task: Generate a comprehensive structured learning plan in JSON.
-Use **Chain of Thought** reasoning before writing the content.
-IMPORTANT AESTHETIC REQUIREMENT: Break down the lessons into small, easily digestible "sections" instead of one massive paragraph. Readability is key.
-
-RULES:
-1. Create a week-by-week plan in the "plan" array.
-2. For ALL topics in the plan, generate "content" items with:
-   - "reasoning": A brief explanation of WHY you are teaching it this way (Chain of Thought).
-   - "sections": Break down the explanation into EXACTLY 3 or 4 small, focused sections. For each section provide a "title" and "content" (markdown).
-   - "quiz": Array of EXACTLY 3 multiple choice questions (each with "question", "options" (4 choices), "answer" (exact text of correct option), "explanation").
-   - "exercises": Array of EXACTLY 2 exercises highly tailored to the domain (code, translation, problem, or theory).
-   - "resources": 2-3 real useful links.
-
-3. The JSON MUST exactly follow this shape:
+You MUST return ONLY a valid JSON object matching this EXACT schema:
 {
-  "level": "beginner|intermediate|advanced",
-  "goal": "one-sentence summary of what the learner will achieve",
+  "level": "Beginner|Intermediate|Advanced",
+  "goal": "One sentence summary of what the learner will achieve",
+  "estimatedDuration": "The duration you proposed or the one provided (e.g. 4 weeks)",
   "plan": [
-    { "week": 1, "topics": ["Topic A", "Topic B", ...] },
-    ...
+    {
+      "week": 1,
+      "phase": "Foundation",
+      "topics": ["Topic 1 title", "Topic 2 title", "Topic 3 title"]
+    },
+    {
+      "week": 2,
+      "phase": "Core Concepts",
+      "topics": ["Topic 4 title", "Topic 5 title", "Topic 6 title"]
+    },
+    {
+      "week": 3,
+      "phase": "Advanced Practice",
+      "topics": ["Topic 7 title", "Topic 8 title"]
+    },
+    {
+      "week": 4,
+      "phase": "Mastery & Projects",
+      "topics": ["Topic 9 title", "Topic 10 title"]
+    }
   ],
   "content": [
     {
-      "topic": "string",
-      "reasoning": "string - explaining the pedagogical approach",
+      "topic": "Topic 1 title",
+      "reasoning": "Why this topic is important and how it fits the learning path",
+      "mermaidDiagram": "graph TD\\n  subgraph Core\\n    A((Topic Name)) --> B[Key Concept 1]\\n    A --> C[Key Concept 2]\\n  end\\n  B --> D[(Data Store)]\\n  C --> E{Decision}",
+      "labTemplate": "// Starter code or exercise setup for this topic",
       "sections": [
-         { "title": "string", "content": "markdown string (short, 1-2 paragraphs max)" },
-         { "title": "string", "content": "markdown string..." }
+        {
+          "title": "Introduction",
+          "content": "## Introduction\\n\\nDetailed markdown content with at least 3 paragraphs explaining the concept..."
+        },
+        {
+          "title": "Core Principles",
+          "content": "## Core Principles\\n\\nDetailed explanation with examples, code snippets, and key insights..."
+        },
+        {
+          "title": "Practical Examples",
+          "content": "## Practical Examples\\n\\nHands-on examples showing real-world application..."
+        }
       ],
-      "resources": [{ "title": "string", "link": "https://...", "description": "string" }],
       "quiz": [
-        { "question": "string", "options": ["A", "B", "C", "D"], "answer": "A", "explanation": "string" },
-        ...
+        {
+          "question": "What is...?",
+          "options": ["Option A", "Option B", "Option C", "Option D"],
+          "correct": 0,
+          "explanation": "Because..."
+        }
       ],
       "exercises": [
-        { "title": "string", "description": "string", "type": "code|translation|theory|problem", "solution": "string" },
-        ...
+        {
+          "title": "Exercise 1",
+          "description": "Detailed exercise instructions...",
+          "type": "coding",
+          "solution": "// Solution code here"
+        }
+      ],
+      "resources": [
+        {
+          "title": "Resource Title",
+          "link": "https://en.wikipedia.org/wiki/React_(JavaScript_library)",
+          "description": "Official documentation or tutorial"
+        }
       ]
     }
   ]
 }
 
-CRITICAL: Return ONLY the valid JSON object. No markdown fences, no extra text.
-    `;
+CRITICAL RULES:
+- The "plan" array MUST cover the entire duration. If duration is ~1 month, use 4 weeks. If it's shorter, adjust accordingly.
+- The "content" array MUST have the full content for the FIRST 3 topics of Week 1.
+- Each section's "content" field MUST contain at least 200 words of real markdown text.
+- The "mermaidDiagram" MUST be a RICH, NON-LINEAR mindmap or technical architecture. Use branching (A-->B, A-->C), subgraphs, and different shapes ( [], (()), [()], { }). Avoid simple vertical lists. Ensure valid syntax without illegal characters in labels.
+- RESOURCES: Use REAL URLs from Wikipedia, MDN, official docs, etc. Example: "https://en.wikipedia.org/wiki/React_(JavaScript_library)". Do NOT invent or use placeholder URLs like "https://example.com".
+- Return ONLY the JSON object. No explanation. No markdown. No backticks around the JSON.
+${contextString}
+`;
 
     for (const modelConfig of aiProviders) {
       try {
-        console.log(`🤖 AgentOrchestrator: Attempting plan generation with ${modelConfig.name} (${modelConfig.provider})...`);
-        let responseText = "";
-
-        if (modelConfig.provider === "grok") {
-          const completion = await grokClient!.chat.completions.create({
-            model: modelConfig.name,
-            messages: [
-              { role: "system", content: "You are a JSON-only API that outputs strict JSON matching the schema." },
-              { role: "user", content: prompt + "\n\nCRITICAL: OUTPUT PURE JSON VALID AGAINST THE EXPECTED SCHEMA, NOTHING ELSE. NO MARKDOWN TICKS." }
-            ],
-            response_format: { type: "json_object" }
-          });
-          responseText = completion.choices[0]?.message?.content || "{}";
-
-        } else {
-          // Gemini — NO JSON mode, full creative freedom via prompt
-          // This allows rich output: deep explanations, 3 quiz Qs, 2 exercises etc.
-          const model = genAI.getGenerativeModel({ model: modelConfig.name });
-          const result = await model.generateContent(prompt);
-          responseText = result.response.text();
-        }
+        console.log(`🤖 Agent [Architect]: Generating structure with ${modelConfig.name}...`);
         
-        // Robust JSON extraction: strip ```json fences, then find the first { ... } block
-        if (responseText.includes("```")) {
-           responseText = responseText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
-        }
-        // Fallback: extract the first JSON object if there's any surrounding text
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) responseText = jsonMatch[0];
-        
-        // Parse the AI output
-        console.log(`Parsing AI JSON response (${responseText.length} chars)...`);
-        const rawData = JSON.parse(responseText);
+        let rawData;
+        if (modelConfig.provider === "gemini") {
+            const model = genAI.getGenerativeModel({ 
+                model: modelConfig.name,
+                tools: TOOLS as any
+            });
 
-        // Run the Smart Tool to ensure guaranteed resources if AI misses them
-        if (rawData.content && Array.isArray(rawData.content)) {
-          rawData.content = await Promise.all(rawData.content.map(async (c: any) => {
-            const wikiRes = await searchWikipedia(c.topic || "");
-            c.resources = [...(c.resources || []), ...wikiRes];
-            
-            // Save to Vector DB for future context
-            if (c.sections && Array.isArray(c.sections)) {
-                const combinedContent = c.sections.map((s: any) => s.content).join("\n\n");
-                await KnowledgeService.remember(c.topic, combinedContent, modelConfig.name);
+            const chat = model.startChat();
+            let result = await this.withRetry(() => chat.sendMessage(prompt));
+            let response = result.response;
+
+            // Handle multi-turn function calling
+            while (response.functionCalls()) {
+                const calls = response.functionCalls();
+                if (!calls) break;
+                const toolResponses = await Promise.all(calls.map(async (call) => {
+                    console.log(`🔍 Agent [Researcher]: Calling ${call.name} for query: ${JSON.stringify(call.args)}`);
+                    const tool = toolActions[call.name];
+                    const result = tool ? await tool(call.args) : { error: "Tool not found" };
+                    console.log(`📡 Tool [${call.name}] returned:`, JSON.stringify(result).substring(0, 50) + "...");
+                    return {
+                        functionResponse: {
+                            name: call.name,
+                            response: result
+                        }
+                    };
+                }));
+                
+                result = await this.withRetry(() => chat.sendMessage(toolResponses));
+                response = result.response;
             }
+
+            let responseText = response.text();
+            console.log("📄 Raw AI Response received.");
+            responseText = responseText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+            let cleanedJson = jsonMatch ? jsonMatch[0] : responseText;
             
-            return c;
-          }));
+            // Fix invalid multi-line backticks
+            cleanedJson = cleanedJson.replace(/:\s*`([\s\S]*?)`/g, (match, p1) => {
+                return `: ${JSON.stringify(p1)}`;
+            });
+
+            rawData = this.safeParse(cleanedJson);
+        } else {
+            console.log(`🤖 fallback to Groq (${modelConfig.name})...`);
+            if (!groqClient) throw new Error("Groq client not initialized");
+            
+            // Map our tools to Groq/OpenAI format
+            const groqTools = [
+              {
+                type: "function",
+                function: {
+                  name: "searchWikipedia",
+                  description: "Search Wikipedia for factual info",
+                  parameters: {
+                    type: "object",
+                    properties: { query: { type: "string" } },
+                    required: ["query"]
+                  }
+                }
+              },
+              {
+                type: "function",
+                function: {
+                  name: "searchGoogle",
+                  description: "Search Google for web results",
+                  parameters: {
+                    type: "object",
+                    properties: { query: { type: "string" } },
+                    required: ["query"]
+                  }
+                }
+              },
+              {
+                type: "function",
+                function: {
+                  name: "searchYouTube",
+                  description: "Search YouTube for educational video tutorials. Returns real YouTube video URLs.",
+                  parameters: {
+                    type: "object",
+                    properties: { query: { type: "string" } },
+                    required: ["query"]
+                  }
+                }
+              }
+            ];
+
+            const messages: any[] = [
+                { role: "system", content: "You are an elite Education Architect. You MUST return a JSON object with 'level', 'goal', 'plan' (array of weeks/topics), and 'content' (array of detailed topic objects). Generate internal content for the first topic immediately." },
+                { role: "user", content: prompt }
+            ];
+
+            let completion = await this.withRetry(() => groqClient!.chat.completions.create({
+                model: modelConfig.name,
+                messages,
+                tools: groqTools as any,
+                tool_choice: "auto",
+            }));
+
+            let responseMessage = completion.choices[0]?.message;
+            if (!responseMessage) throw new Error("No response from Groq");
+
+            // Handle Groq Function Calling
+            if (responseMessage.tool_calls) {
+                messages.push(responseMessage);
+                for (const toolCall of responseMessage.tool_calls as any[]) {
+                    const functionName = toolCall.function.name;
+                    const functionArgs = this.safeParse(toolCall.function.arguments);
+                    console.log(`🔍 Groq [Researcher]: Calling ${functionName}...`);
+                    const tool = toolActions[functionName];
+                    const result = tool ? await tool(functionArgs) : { error: "Tool not found" };
+                    
+                    messages.push({
+                        tool_call_id: toolCall.id,
+                        role: "tool" as const,
+                        name: functionName,
+                        content: JSON.stringify(result),
+                    });
+                }
+                
+                completion = await groqClient.chat.completions.create({
+                    model: modelConfig.name,
+                    messages,
+                    response_format: { type: "json_object" }
+                });
+            }
+
+            let content = completion.choices[0]?.message?.content || "{}";
+            console.log("📄 Raw Groq Response received:", content.substring(0, 100) + "...");
+            
+            // Heavy Cleaning
+            content = content.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+            const jsonMatch = content.match(/\{[\s\S]*\}/);
+            let cleanedJson = jsonMatch ? jsonMatch[0] : content;
+            
+            // Fix invalid multi-line backticks if AI used them
+            cleanedJson = cleanedJson.replace(/:\s*`([\s\S]*?)`/g, (match, p1) => {
+                return `: ${JSON.stringify(p1)}`;
+            });
+
+            rawData = this.safeParse(cleanedJson);
         }
 
-        console.log(`✅ AgentOrchestrator: Success with ${modelConfig.name}`);
-        return rawData;
+        // Phase 2: Critic Agent Review
+        console.log(`⚖️ Agent [Critic]: Reviewing generated plan...`);
+        const reviewedData = await this.reviewContent(rawData, "learning-plan");
+        
+        const finalData = this.sanitizePlanData(reviewedData);
+        
+        // Validation: If the plan is empty or lacks topics, it's a failure.
+        if (!finalData.plan || finalData.plan.length === 0) {
+            throw new Error(`${modelConfig.name} returned an empty plan. Retrying...`);
+        }
+
+        console.log("✨ Plan generation cycle complete.");
+        return finalData;
 
       } catch (error: any) {
-        console.warn(`⚠️ AgentOrchestrator: Model ${modelConfig.name} failed. Error: ${error.message}`);
+        console.error(`❌ AgentOrchestrator: ${modelConfig.name} failed:`, error);
         lastError = error;
-        
-        // If it's a 503 or 429, wait briefly and try the next model
-        if (error.message?.includes("503") || error.message?.includes("429")) {
-          await sleep(2000); 
-          continue; 
-        }
-        
-        // If it's a JSON parse error or other, try next model
-        if (error instanceof SyntaxError) {
-           continue;
-        }
-
-        // If Grok fails for some other reason, fall back to Gemini
         continue;
       }
     }
 
-    throw lastError || new Error("All AI models failed to generate a plan.");
+    throw lastError || new Error("All AI models failed.");
   }
 
   /**
-   * AI TUTOR: Refines an existing plan based on natural language feedback.
+   * Generates full detailed content for a specific sub-topic
    */
-  static async refinePlan(currentPlan: any, userMessage: string): Promise<any> {
-    const model = genAI.getGenerativeModel({ 
-        model: "gemini-2.0-flash",
-        generationConfig: { responseMimeType: "application/json" }
-    });
+  /**
+   * Generates full detailed content for a specific sub-topic
+   * HYBRID COLLABORATION: Groq (Researcher) + Gemini (Writer)
+   */
+  static async generateTopicDetails(mainTopic: string, subTopic: string) {
+    try {
+        console.log(`🤝 Multi-Agent Collaboration Started for [${subTopic}]`);
 
+        // Phase 1: Research with Groq (Fastest for tool calls)
+        console.log(`🔍 Agent [Researcher/Groq]: Finding real resources for ${subTopic}...`);
+        let researchContext = "";
+        if (groqClient) {
+            const researchPrompt = `Find 3 real educational resources (Wikipedia, official docs) and 2 YouTube videos for the topic: "${subTopic}". Return a brief summary of what you found.`;
+            const groqTools = [
+                {
+                    type: "function",
+                    function: {
+                        name: "searchWikipedia",
+                        description: "Search Wikipedia",
+                        parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] }
+                    }
+                },
+                {
+                    type: "function",
+                    function: {
+                        name: "searchYouTube",
+                        description: "Search YouTube",
+                        parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] }
+                    }
+                },
+                {
+                    type: "function",
+                    function: {
+                        name: "searchGoogle",
+                        description: "Search Google for latest articles and docs",
+                        parameters: { type: "object", properties: { query: { type: "string" } }, required: ["query"] }
+                    }
+                }
+            ];
+
+            const messages: any[] = [{ role: "user", content: researchPrompt }];
+            let completion = await this.withRetry(() => groqClient!.chat.completions.create({
+                model: "llama-3.3-70b-versatile",
+                messages,
+                tools: groqTools as any,
+                tool_choice: "auto"
+            }));
+
+            const responseMessage = completion.choices[0]?.message;
+            if (!responseMessage) throw new Error("No response from Groq during research phase");
+            if (responseMessage.tool_calls) {
+                messages.push(responseMessage);
+                for (const toolCall of responseMessage.tool_calls as any[]) {
+                    const functionName = toolCall.function.name;
+                    const functionArgs = this.safeParse(toolCall.function.arguments);
+                    const tool = toolActions[functionName];
+                    const result = tool ? await tool(functionArgs) : { error: "Tool not found" };
+                    messages.push({ tool_call_id: toolCall.id, role: "tool" as const, name: functionName, content: JSON.stringify(result) });
+                }
+                const finalResearch = await this.withRetry(() => groqClient!.chat.completions.create({
+                    model: "llama-3.3-70b-versatile",
+                    messages
+                }));
+                researchContext = finalResearch.choices[0]?.message?.content || "";
+            }
+        }
+
+        // Phase 2: Pedagogical Writing with Gemini (Best for long-form content)
+        console.log(`✍️ Agent [Writer/Gemini]: Drafting lesson using research context...`);
+        const writingPrompt = `
+You are an Expert AI Educator. Generate a HYPER-DETAILED educational module for: "${subTopic}" (Subject: ${mainTopic}).
+Use the following RESEARCHED DATA to include real links and videos:
+${researchContext}
+
+You MUST return ONLY a valid JSON object matching this EXACT schema:
+{
+  "topic": "${subTopic}",
+  "reasoning": "...",
+  "mermaidDiagram": "...",
+  "labTemplate": "<!DOCTYPE html><html><head><style>/* CSS */</style></head><body><!-- HTML --></body></html>",
+  "sections": [
+    { "title": "Introduction", "content": "..." },
+    { "title": "Deep Dive", "content": "..." },
+    { "title": "Mastery", "content": "..." }
+  ],
+  "quiz": [
+    { "question": "...", "options": ["...", "..."], "answer": "...", "explanation": "..." }
+  ],
+  "exercises": [
+    { "title": "...", "description": "...", "type": "practical", "solution": "..." }
+  ],
+  "resources": [
+    { "title": "...", "link": "...", "description": "..." }
+  ]
+}
+
+CRITICAL:
+- Length: Each section MUST be at least 300 words. Total module > 1000 words.
+- Visual: MUST be a unique Mermaid mindmap.
+- Resources: Include real URLs found in research context.
+- EXTREMELY IMPORTANT: DO NOT RETURN EMPTY SECTIONS.
+
+`;
+
+
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const result = await this.withRetry(() => model.generateContent(writingPrompt));
+        let responseText = result.response.text();
+        
+        responseText = responseText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("Writer failed to return JSON");
+        
+        let details = this.safeParse(jsonMatch[0]);
+        
+        // If Phase 2 returned empty content, force fallback now
+        if (!details.sections || details.sections.length === 0) {
+            console.warn("⚠️ Phase 2 returned empty sections. Forcing fallback...");
+            return this.fallbackGeneration(mainTopic, subTopic);
+        }
+
+        // Phase 3: Final Critic Review (Gemini or Groq)
+        console.log(`⚖️ Agent [Critic]: Final validation...`);
+        details = await this.reviewContent(details, "topic-details");
+        details = this.sanitizeTopicDetails(details);
+
+        // Remember in knowledge base
+        const combinedContent = details.sections.map((s: any) => s.content).join("\n\n");
+        await KnowledgeService.remember(subTopic, combinedContent, "Hybrid-Agent-System");
+
+        return details;
+
+    } catch (error: any) {
+        console.error("❌ Hybrid collaboration failed:", error.message);
+        // Fallback to simple generation if collaboration fails
+        return this.fallbackGeneration(mainTopic, subTopic);
+    }
+  }
+
+  /**
+   * Generates a comprehensive Phase Exam covering multiple topics.
+   */
+  public static async generatePhaseExam(subject: string, phaseTitle: string, topics: string[]) {
+    console.log(`🎓 Generating Phase Exam for: ${phaseTitle} (${subject})...`);
     const prompt = `
-You are an elite Educational Architect. I will provide you with a CURRENT JSON learning plan and a USER FEEDBACK message.
-Your task is to REDESIGN the JSON plan according to the user's request while maintaining the exact structure.
+You are an Elite Academic Examiner. Create a FINAL EXAM for the following phase: "${phaseTitle}" in the course "${subject}".
+The exam must cover these specific topics: ${topics.join(", ")}.
 
-CURRENT PLAN:
-${JSON.stringify(currentPlan)}
+Requirements:
+- 10-15 high-quality, challenging multiple-choice questions.
+- Each question must test deep understanding, not just surface facts.
+- Include a "difficulty" field (Beginner, Intermediate, Advanced).
 
-USER REQUEST:
-"${userMessage}"
+Return ONLY a valid JSON object matching this schema:
+{
+  "phase": "${phaseTitle}",
+  "examTitle": "Certification Exam: ${phaseTitle}",
+  "questions": [
+    {
+      "question": "...",
+      "options": ["...", "..."],
+      "answer": "...",
+      "explanation": "...",
+      "difficulty": "..."
+    }
+  ]
+}
+`;
 
-RULES:
-1. Return ONLY the updated JSON. No markdown ticks, no preamble.
-2. Maintain the exact JSON schema (level, goal, plan[], content[]).
-3. If the user wants to focus more on a certain sub-topic, update the text in the "sections" and "quiz" to reflect that.
-4. If the user wants to make it harder/easier, adjust the complexity of the explanation and exercises.
-5. Keep sections chunked and educational.
+    // Try Gemini first
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const result = await this.withRetry(() => model.generateContent(prompt));
+        let text = result.response.text();
+        text = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+        const match = text.match(/\{[\s\S]*\}/);
+        return this.safeParse(match ? match[0] : text);
+    } catch (err) {
+        // Fallback to Groq
+        if (groqClient) {
+            const completion = await this.withRetry(() => groqClient!.chat.completions.create({
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "user", content: prompt }],
+                response_format: { type: "json_object" }
+            }));
+            return this.safeParse(completion.choices[0]?.message?.content || "{}");
+        }
+        throw err;
+    }
+  }
 
-Return only the valid JSON object.
+  /**
+   * Simple single-model generation as a fallback
+   */
+  private static async fallbackGeneration(mainTopic: string, subTopic: string) {
+    console.log("⚠️ Falling back to multi-provider generation...");
+    const fallbackSchema = `
+    EXPECTED JSON SCHEMA:
+    {
+      "topic": "${subTopic}",
+      "reasoning": "Why this is important",
+      "mermaidDiagram": "graph LR\\nA-->B",
+      "labTemplate": "<!DOCTYPE html><html><head><style>/* CSS here */</style></head><body><!-- HTML here --></body></html>",
+      "sections": [{ "title": "Section 1", "content": "Detailed text..." }],
+      "quiz": [{ "question": "?", "options": ["A", "B"], "answer": "A", "explanation": "..." }],
+      "exercises": [{ "title": "Ex 1", "description": "...", "type": "practical", "solution": "..." }],
+      "resources": [{ "title": "Doc", "link": "https://...", "description": "..." }]
+    }
+    CRITICAL: Ensure ALL fields are populated with rich content. Do NOT return empty sections.`;
+
+    // Try Gemini
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const prompt = `Generate a COMPREHENSIVE educational module JSON for topic: "${subTopic}" (Subject: ${mainTopic}). 
+        Include Introduction, Core Concepts, and Advanced Deep Dive sections. 
+        Each section MUST have at least 300 words of content.
+        ${fallbackSchema}
+        Return ONLY valid JSON.`;
+        const result = await this.withRetry(() => model.generateContent(prompt), 1); // Only 1 retry for fallback to be fast
+        let text = result.response.text();
+        text = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+        const match = text.match(/\{[\s\S]*\}/);
+        return this.sanitizeTopicDetails(this.safeParse(match ? match[0] : text));
+    } catch (geminiErr: any) {
+        console.warn("❌ Fallback Gemini failed, trying Groq...", geminiErr.message);
+        if (groqClient) {
+            const completion = await this.withRetry(() => groqClient!.chat.completions.create({
+                model: "llama-3.3-70b-versatile",
+                messages: [
+                    { role: "system", content: "You are an Expert AI Educator. Generate a detailed educational module JSON." },
+                    { role: "user", content: `Topic: ${subTopic} (Subject: ${mainTopic})\n\n${fallbackSchema}` }
+                ],
+                response_format: { type: "json_object" }
+            }));
+            const text = completion.choices[0]?.message?.content || "{}";
+            return this.sanitizeTopicDetails(this.safeParse(text));
+        }
+        throw geminiErr;
+    }
+  }
+
+  /**
+   * NEW: CRITIC AGENT
+   * Reviews and refines AI-generated content to ensure quality and schema adherence.
+   */
+  private static async reviewContent(data: any, type: "learning-plan" | "topic-details"): Promise<any> {
+    const prompt = `
+You are an elite QA Critic Agent. I will provide you with AI-generated JSON content for a ${type}.
+Your task:
+1. Verify fact accuracy and pedagogical flow.
+2. ENSURE THE PLAN COVERS THE FULL DURATION (e.g., if it's for 1 month, ensure 4 weeks). DO NOT TRUNCATE.
+3. Ensure Mermaid symbols/syntax are correct (no special characters in node names).
+4. Ensure no empty sections or placeholder text.
+5. If valid, return the JSON. If it has flaws, FIX IT and return the corrected JSON.
+
+CONTENT TO REVIEW:
+${JSON.stringify(data)}
+
+Return ONLY valid JSON.
 `;
 
     try {
-      console.log("🤖 AgentOrchestrator: Refining plan based on tutor chat...");
-      const result = await model.generateContent(prompt);
-      const text = result.response.text();
-      return JSON.parse(text);
-    } catch (error: any) {
-      console.error("❌ RefinePlan failed:", error);
-      throw new Error("I couldn't refine the plan right now. Please try again.");
+        // Use 2.0 flash for review
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const result = await this.withRetry(() => model.generateContent(prompt));
+        let responseText = result.response.text();
+        
+        responseText = responseText.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        return this.safeParse(jsonMatch ? jsonMatch[0] : responseText);
+    } catch (err) {
+        // Fallback to Groq for Critic
+        if (groqClient) {
+            console.log("⚖️ Critic Agent: Falling back to Groq...");
+            const completion = await this.withRetry(() => groqClient!.chat.completions.create({
+                model: "llama-3.3-70b-versatile",
+                messages: [
+                    { role: "system", content: "You are a QA Critic. Verify and fix the provided JSON. Return ONLY the JSON." },
+                    { role: "user", content: prompt }
+                ],
+                response_format: { type: "json_object" }
+            }));
+            let text = completion.choices[0]?.message?.content || "{}";
+            text = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+            const match = text.match(/\{[\s\S]*\}/);
+            return this.safeParse(match ? match[0] : text);
+        }
+        console.warn("⚠️ Critic Agent failed completely.");
+        return data;
+    }
+  }
+
+  /**
+   * Evaluation and Refinement methods remain unchanged or slightly updated for better performance.
+   */
+  static async evaluateExercise(topic: string, exercise: any, submission: string): Promise<any> {
+    const prompt = `You are an Expert AI Tutor. Evaluate this submission for "${exercise.title}". Return JSON {score, feedback, passed}.`;
+    
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const result = await model.generateContent(`${prompt}\n\nSubmission: ${submission}\nContext: ${exercise.description}`);
+        const text = result.response.text();
+        const match = text.match(/\{[\s\S]*\}/);
+        return this.safeParse(match ? match[0] : text);
+    } catch (err) {
+        if (groqClient) {
+            const completion = await groqClient.chat.completions.create({
+                model: "llama-3.1-8b-instant",
+                messages: [{ role: "user", content: `${prompt}\n\nSubmission: ${submission}` }],
+                response_format: { type: "json_object" }
+            });
+            let text = completion.choices[0]?.message?.content || "{}";
+            text = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
+            const match = text.match(/\{[\s\S]*\}/);
+            return this.safeParse(match ? match[0] : text);
+        }
+        throw err;
+    }
+  }
+
+  static async refinePlan(currentPlan: any, userMessage: string): Promise<any> {
+    const prompt = `You are an elite Education Architect. Redesign this plan based on user feedback.\n\nFeedback: ${userMessage}\n\nCurrent Plan: ${JSON.stringify(currentPlan)}`;
+    
+    try {
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const result = await model.generateContent(prompt);
+        const text = result.response.text();
+        const match = text.match(/\{[\s\S]*\}/);
+        return this.safeParse(match ? match[0] : text);
+    } catch (err) {
+        if (groqClient) {
+            const completion = await groqClient.chat.completions.create({
+                model: "llama-3.3-70b-versatile",
+                messages: [{ role: "user", content: prompt }],
+                response_format: { type: "json_object" }
+            });
+            return this.safeParse(completion.choices[0]?.message?.content || "{}");
+        }
+        throw err;
+    }
+  }
+
+  private static sanitizePlanData(data: any): any {
+    const sanitized = { ...data };
+    sanitized.plan = Array.isArray(sanitized.plan) ? sanitized.plan : [];
+    sanitized.content = Array.isArray(sanitized.content) ? sanitized.content : [];
+    sanitized.estimatedDuration = String(sanitized.estimatedDuration || "Proposing...");
+    
+    // Deep sanitize plan items
+    sanitized.plan = sanitized.plan.map((phase: any) => ({
+      ...phase,
+      week: typeof phase.week === 'string' 
+        ? parseInt(phase.week.replace(/\D/g, '')) || 1 
+        : (phase.week || 1),
+      topics: Array.isArray(phase.topics) ? phase.topics : []
+    }));
+    
+    return sanitized;
+  }
+
+  private static sanitizeTopicDetails(data: any): any {
+    const sanitized = { ...data };
+    sanitized.topic = String(sanitized.topic || "Untitled Topic");
+    
+    // Ensure sections is a non-empty array
+    if (!Array.isArray(sanitized.sections) || sanitized.sections.length === 0) {
+        sanitized.sections = [{ 
+            title: "Introduction", 
+            content: typeof sanitized.sections === 'string' ? sanitized.sections : "Course content is being refined. Please try regenerating." 
+        }];
+    }
+
+    sanitized.quiz = Array.isArray(sanitized.quiz) ? sanitized.quiz : [];
+    sanitized.exercises = Array.isArray(sanitized.exercises) ? sanitized.exercises : [];
+    sanitized.resources = Array.isArray(sanitized.resources) ? sanitized.resources : [];
+    
+    // Ensure sections have content
+    sanitized.sections = sanitized.sections.map((s: any) => ({
+        title: String(s.title || "Untitled Section"),
+        content: String(s.content || "Content is being drafted...")
+    }));
+    
+    // Ensure exercises have required fields
+    sanitized.exercises = sanitized.exercises.map((ex: any) => ({
+        title: ex.title || "Exercise",
+        description: ex.description || "No description provided.",
+        type: ex.type || "practical",
+        solution: ex.solution || ""
+    }));
+
+    // Normalize resources: map 'url' to 'link', filter out fake/missing URLs
+    sanitized.resources = sanitized.resources
+      .map((r: any) => ({
+        title: r.title || "Resource",
+        link: r.link || r.url || "",
+        description: r.description || r.type || "External resource"
+      }))
+      .filter((r: any) => r.link && r.link.startsWith("http"));
+
+    return sanitized;
+  }
+
+  private static async withRetry<T>(fn: () => Promise<T>, maxRetries = 3, delay = 2000): Promise<T> {
+    let lastError: any;
+    for (let i = 0; i < maxRetries; i++) {
+        try {
+            return await fn();
+        } catch (err: any) {
+            lastError = err;
+            const errMsg = err.message || "";
+            const isQuotaExceeded = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("Rate limit");
+            const isHardLimit = errMsg.includes("limit: 0") || errMsg.includes("requests per day");
+
+            if (isQuotaExceeded) {
+                if (isHardLimit) {
+                    console.warn(`🛑 Hard Quota Limit reached (limit: 0). Skipping retries and switching provider...`);
+                    throw err; // Fail fast to trigger fallback
+                }
+                
+                console.warn(`⏳ Rate limit hit. Retrying in ${delay}ms... (Attempt ${i + 1}/${maxRetries})`);
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay *= 2; 
+                continue;
+            }
+            throw err;
+        }
+    }
+    throw lastError;
+  }
+
+  private static safeParse(text: string): any {
+    try {
+        return JSON.parse(text);
+    } catch (err) {
+        try {
+            console.log("🛠️ Attempting JSON repair...");
+            return JSON.parse(jsonrepair(text));
+        } catch (repairErr) {
+            console.error("❌ JSON repair failed:", text.substring(0, 500));
+            throw new Error("Critical JSON failure after repair attempt.");
+        }
     }
   }
 }
+

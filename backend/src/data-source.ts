@@ -4,6 +4,7 @@ import { User } from "./entities/User.js";
 import { LearningPlan } from "./entities/LearningPlan.js";
 import { Progress } from "./entities/Progress.js";
 import { Knowledge } from "./entities/Knowledge.js";
+import { Achievement } from "./entities/Achievement.js";
 
 export const AppDataSource = new DataSource({
     type: "postgres",
@@ -14,7 +15,7 @@ export const AppDataSource = new DataSource({
     database: process.env.DB_NAME || "agentic_learning",
     synchronize: true, // Auto-create tables for development
     logging: false,
-    entities: [User, LearningPlan, Progress, Knowledge],
+    entities: [User, LearningPlan, Progress, Knowledge, Achievement],
     subscribers: [],
     migrations: [],
 });
