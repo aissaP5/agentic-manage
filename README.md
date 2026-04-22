@@ -17,6 +17,7 @@ Welcome to the full-stack AI learning platform!
 4. Create a `.env` file based on `.env.example` and insert your Gemini API Key:
    ```env
    GEMINI_API_KEY=your_key_here
+   GROQ_API_KEY=your_key_here
    ```
 5. Start the backend: `npm run dev`
 
