@@ -10,6 +10,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
 import { ThinkingProcess } from "./ThinkingProcess";
 import AchievementOverlay from "./AchievementOverlay";
+import { apiClient } from "../api/client";
 
 export default function LessonViewer({ 
   content, 
@@ -71,13 +72,11 @@ export default function LessonViewer({
     setIsGenerating(true);
     try {
       console.log(`📡 Sending request to generate: ${content.topic}`);
-      const res = await fetch(`http://localhost:3000/api/plans/${planId}/topics/generate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ topicName: content.topic })
+      const res = await apiClient.post(`/plans/${planId}/topics/generate`, {
+        topicName: content.topic
       });
-      const data = await res.json();
-      if (res.ok && data.data) {
+      const data = res.data;
+      if (data && data.data) {
         // Wait a token amount of time to show the "done" state of logs
         setTimeout(() => {
             onTopicGenerated?.(data.data);

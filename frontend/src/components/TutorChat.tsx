@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { MessageSquare, Send, Bot, X, Sparkles, RefreshCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import clsx from "clsx";
+import { apiClient } from "../api/client";
 
 interface Message {
   role: "user" | "bot";
@@ -37,13 +38,11 @@ export default function TutorChat({ planId, onPlanRefined }: TutorChatProps) {
     setIsRefining(true);
 
     try {
-      const res = await fetch(`http://localhost:3000/api/plans/${planId}/refine`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg })
+      const res = await apiClient.post(`/plans/${planId}/refine`, {
+        message: userMsg
       });
       
-      const data = await res.json();
+      const data = res.data;
       
       if (data.data) {
         setMessages(prev => [...prev, { role: "bot", text: "I've updated your curriculum! Check out the changes in your timeline." }]);

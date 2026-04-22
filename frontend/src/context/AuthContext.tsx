@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { apiClient } from "../api/client";
 
 type User = {
   id: number;
@@ -23,20 +24,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (name: string, password: string) => {
-    const res = await fetch("http://localhost:3000/api/users/login", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, password })
-    });
-    
-    if (res.status === 401) {
-      throw new Error("Incorrect password");
-    }
-    
-    const data = await res.json();
-    if (data.id) {
-      setUser(data);
-      localStorage.setItem("agentic_user", JSON.stringify(data));
+    try {
+      const res = await apiClient.post("/users/login", { name, password });
+      const data = res.data;
+      if (data.id) {
+        setUser(data);
+        localStorage.setItem("agentic_user", JSON.stringify(data));
+      }
+    } catch (err: any) {
+      if (err.response?.status === 401) {
+        throw new Error("Incorrect password");
+      }
+      throw err;
     }
   };
 

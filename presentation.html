@@ -14,6 +14,8 @@
         .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
         h1, h2, h3 { letter-spacing: -0.025em; }
         .math-block { font-family: 'Cambria Math', 'Times New Roman', serif; background-color: #f1f5f9; padding: 1rem; border-radius: 0.5rem; text-align: center; font-size: 1.1rem; border: 1px solid #e2e8f0; }
+        .mermaid { display: flex; justify-content: center; background: white; padding: 2rem; border-radius: 1.5rem; border: 1px solid #e2e8f0; margin: 1.5rem 0; min-height: 350px; width: 100%; }
+        .mermaid svg { width: 100% !important; height: auto !important; max-width: 900px !important; }
     </style>
 </head>
 <body class="antialiased selection:bg-blue-200 selection:text-blue-900">
@@ -66,9 +68,36 @@
             </div>
         </section>
 
+        <!-- 2. Cartographie des Fonctionnalités -->
+        <section>
+            <h2 class="text-3xl font-bold mb-8 text-slate-800 border-b pb-4">2. Cartographie des Fonctionnalités</h2>
+            <p class="text-slate-600 mb-6 text-lg">Cette cartographie illustre l'étendue modulaire de la plateforme, allant de la gestion administrative à l'intelligence générative de pointe.</p>
+            <div class="mermaid">
+                    mindmap
+                      root((Plateforme Apprenant))
+                        Gestion de Compte
+                          Connexion Sécurisée
+                          Suivi des Points XP
+                          Badges de Succès
+                        Apprentissage IA
+                          Génération de Plans
+                          Cours Multimédia
+                          Diagrammes Dynamiques
+                        Pratique & Quiz
+                          QCM Interactifs
+                          Labo de Code HTML/JS
+                          Correction Automatique
+                        Intelligence
+                          Mémoire RAG
+                          Recherche Wikipedia
+                          Tutos YouTube
+                </div>
+            </div>
+        </section>
+
         <!-- Modèles Mathématiques et RAG -->
         <section>
-            <h2 class="text-3xl font-bold mb-8 text-slate-800 border-b pb-4">2. Modélisation Mathématique et Moteur RAG</h2>
+            <h2 class="text-3xl font-bold mb-8 text-slate-800 border-b pb-4">3. Modélisation Mathématique et Moteur RAG</h2>
             
             <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 mb-8">
                 <h3 class="text-xl font-bold text-slate-800 mb-4">Le mécanisme RAG (Retrieval-Augmented Generation)</h3>
@@ -91,16 +120,35 @@
             </div>
         </section>
 
+        <section>
+            <h2 class="text-3xl font-bold mb-8 text-slate-800 border-b pb-4">4. Parcours de l'Apprenant (User Journey)</h2>
+            <p class="text-slate-600 mb-6 text-lg">Le flux suivant détaille l'expérience utilisateur, de la simple saisie d'un sujet jusqu'à l'obtention de la certification finale validée par l'IA.</p>
+            <div class="mermaid">
+                    graph LR
+                    Start((Départ)) --> Topic[Saisir un Sujet]
+                    Topic --> Wait{Orchestration IA}
+                    Wait --> Plan[Structure du Plan]
+                    Plan --> Learn[Consommation Module]
+                    Learn --> Quiz[Évaluation QCM]
+                    Quiz --> Code[Pratique Laboratoire]
+                    Code --> Finish((Certification))
+
+                    style Start fill:#f8fafc,stroke:#3b82f6
+                    style Finish fill:#dcfce7,stroke:#22c55e
+                    style Wait fill:#fef3c7,stroke:#f59e0b
+                </div>
+            </div>
+        </section>
+
         <!-- Architecture Multi-Agents -->
         <section>
-            <h2 class="text-3xl font-bold mb-8 text-slate-800 border-b pb-4">3. Orchestration Multi-Agents</h2>
+            <h2 class="text-3xl font-bold mb-8 text-slate-800 border-b pb-4">5. Orchestration Multi-Agents</h2>
             
             <p class="text-slate-600 mb-8">
                 La génération du contenu est divisée en processus asynchrones séquentiels. Chaque agent IA reçoit une instruction stricte (System Prompt) et produit un format de données validé avant de le transmettre à l'agent suivant.
             </p>
 
-            <div class="flex justify-center mb-12 bg-white p-6 rounded-2xl border border-slate-200">
-                <div class="mermaid">
+            <div class="mermaid">
                     graph TD
                     A[Requête Utilisateur] -->|POST /generate| B[Architecte]
                     B -->|JSON: Planification| C[RAG Engine]
@@ -141,7 +189,7 @@
 
         <!-- Algorithmes de Résilience -->
         <section>
-            <h2 class="text-3xl font-bold mb-8 text-slate-800 border-b pb-4">4. Résilience Réseau et Redondance</h2>
+            <h2 class="text-3xl font-bold mb-8 text-slate-800 border-b pb-4">6. Résilience Réseau et Redondance</h2>
             
             <div class="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
                 <h3 class="text-xl font-bold text-slate-800 mb-4">Algorithme d'Exponential Backoff</h3>
@@ -175,7 +223,7 @@
 
         <!-- Gamification et Évaluation -->
         <section>
-            <h2 class="text-3xl font-bold mb-8 text-slate-800 border-b pb-4">5. Mécanique d'Évaluation et d'Accomplissement</h2>
+            <h2 class="text-3xl font-bold mb-8 text-slate-800 border-b pb-4">7. Mécanique d'Évaluation et d'Accomplissement</h2>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">

@@ -4,6 +4,7 @@ import { Code2, Target, Type, BookOpen, ChevronDown, ChevronUp, Send, CheckCircl
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "../context/AuthContext";
 import clsx from "clsx";
+import { apiClient } from "../api/client";
 
 interface Exercise {
   title: string;
@@ -34,17 +35,13 @@ export default function ExercisesComponent({ topicName, exercises, onEvaluate }:
 
     setLoading(prev => ({ ...prev, [idx]: true }));
     try {
-      const res = await fetch("http://localhost:3000/api/progress/evaluate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: user.id,
-          topicName,
-          exercise: exercises[idx],
-          submission
-        })
+      const res = await apiClient.post("/progress/evaluate", {
+        userId: user.id,
+        topicName,
+        exercise: exercises[idx],
+        submission
       });
-      const data = await res.json();
+      const data = res.data;
       setEvaluations(prev => ({ ...prev, [idx]: data.evaluation }));
       onEvaluate?.(data.achievement);
     } catch (err) {

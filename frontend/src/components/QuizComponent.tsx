@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 
 import { useAuth } from "../context/AuthContext";
 import { useEffect } from "react";
+import { apiClient } from "../api/client";
 
 interface QuizProps {
   topicName: string;
@@ -52,17 +53,12 @@ export default function QuizComponent({ topicName, quiz, onComplete }: QuizProps
     if (answeredCount === quiz.length && user) {
       // Award 100 XP per correct answer
       const xpScore = correctCount * 100;
-      fetch("http://localhost:3000/api/progress/quiz", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      apiClient.post("/progress/quiz", {
           userId: user.id,
           topicName: topicName,
           quizScore: xpScore
-        })
       })
-      .then(res => res.json())
-      .then((data) => onComplete?.(data.achievement))
+      .then(res => onComplete?.(res.data.achievement))
       .catch(err => console.error("Failed to save progress", err));
     }
   }, [answeredCount, quiz.length, user, correctCount, topicName]);

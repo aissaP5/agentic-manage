@@ -22,7 +22,7 @@ export default function PlanDisplay({ plan, onSelectTopic, activeTopic }: PlanDi
       <div className="absolute left-6 top-8 bottom-8 w-1 bg-gradient-to-b from-blue-200 via-indigo-200 to-slate-100 rounded-full z-0"></div>
 
       <div className="space-y-8 relative z-10">
-        {(plan || []).map((phase, wIdx) => (
+        {Array.isArray(plan) && plan.map((phase, wIdx) => (
           <div key={wIdx} className="relative">
             {/* Week Badge */}
             <div className="flex items-center gap-4 mb-4">

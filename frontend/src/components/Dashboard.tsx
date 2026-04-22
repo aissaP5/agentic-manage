@@ -9,6 +9,7 @@ import { PlusCircle, Target, BookMarked, ChevronLeft, ChevronRight, Layout, Spar
 import { useAuth } from "../context/AuthContext";
 import axios from "axios";
 import clsx from "clsx";
+import { apiClient } from "../api/client";
 
 export default function Dashboard() {
   const location = useLocation();
@@ -24,20 +25,20 @@ export default function Dashboard() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeExam, setActiveExam] = useState<any>(null);
   const [examLoading, setExamLoading] = useState(false);
+  const [deleteModal, setDeleteModal] = useState<{ isOpen: boolean, planId: number | null }>({ isOpen: false, planId: null });
 
   // Fetch Stats
   const fetchStats = () => {
     if (user?.id) {
-      fetch(`http://localhost:3000/api/users/${user.id}/stats`)
-        .then(res => res.json())
-        .then(data => {
+      apiClient.get(`/users/${user.id}/stats`)
+        .then(res => {
+            const data = res.data;
             if (data && typeof data.xp === "number") setStats(data);
         })
         .catch(err => console.error("Failed to load stats", err));
 
-      fetch(`http://localhost:3000/api/users/${user.id}/achievements`)
-        .then(res => res.json())
-        .then(data => setAchievements(data))
+      apiClient.get(`/users/${user.id}/achievements`)
+        .then(res => setAchievements(res.data))
         .catch(err => console.error("Failed to load achievements", err));
     }
   };
@@ -45,9 +46,9 @@ export default function Dashboard() {
   // Fetch All Plans for Sidebar
   const fetchPlans = () => {
     if (user?.id) {
-      fetch(`http://localhost:3000/api/users/${user.id}/plans`)
-        .then(res => res.json())
-        .then(data => {
+      apiClient.get(`/users/${user.id}/plans`)
+        .then(res => {
+          const data = res.data;
           setAllPlans(data);
           // If we don't have an active plan (e.g. direct nav), pick the first one
           if (!activePlan && data.length > 0) {
@@ -59,23 +60,36 @@ export default function Dashboard() {
     }
   };
  
-  const handleDeletePlan = async (e: React.MouseEvent, id: number) => {
+  const handleDeletePlan = (e: React.MouseEvent, id: number) => {
     e.stopPropagation();
-    console.log("🗑️ Attempting to delete plan with ID:", id);
-    if (!window.confirm("Are you sure you want to delete this course?")) return;
+    setDeleteModal({ isOpen: true, planId: id });
+  };
+
+  const confirmDelete = async () => {
+    const id = deleteModal.planId;
+    if (!id) return;
     
     try {
-      const resp = await axios.delete(`http://localhost:3000/api/plans/${id}`);
+      const resp = await apiClient.delete(`/plans/${id}`);
       console.log("✅ Delete response from server:", resp.data);
-      setAllPlans(prev => prev.filter(p => p.id !== id));
+      
+      const updatedPlans = allPlans.filter(p => p.id !== id);
+      setAllPlans(updatedPlans);
+
       if (currentPlanId === id) {
-        setActivePlan(null);
-        setCurrentPlanId(null);
+        if (updatedPlans.length > 0) {
+          setActivePlan(updatedPlans[0].planData);
+          setCurrentPlanId(updatedPlans[0].id);
+        } else {
+          setActivePlan(null);
+          setCurrentPlanId(null);
+        }
       }
-      alert("Plan deleted successfully.");
+      setDeleteModal({ isOpen: false, planId: null });
     } catch (err: any) {
       console.error("❌ Failed to delete plan:", err.response?.data || err.message);
       alert("Deletion failed. See console for details.");
+      setDeleteModal({ isOpen: false, planId: null });
     }
   };
 
@@ -91,7 +105,7 @@ export default function Dashboard() {
   const handleStartExam = async (phaseIndex: number, phase: any) => {
     setExamLoading(true);
     try {
-      const res = await axios.post(`http://localhost:3000/api/plans/${currentPlanId}/phases/${phaseIndex}/exam`);
+      const res = await apiClient.post(`/plans/${currentPlanId}/phases/${phaseIndex}/exam`);
       setActiveExam({
         phaseIndex,
         data: res.data.data
@@ -335,7 +349,18 @@ export default function Dashboard() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Global Confirmation Modal */}
+      <ConfirmModal 
+        isOpen={deleteModal.isOpen}
+        title="Delete Course?"
+        message="Are you sure you want to delete this course? This action cannot be undone and all your progress for this subject will be lost."
+        confirmText="Yes, Delete"
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteModal({ isOpen: false, planId: null })}
+      />
     </div>
   );
 }
 import PhaseExamComponent from "./PhaseExamComponent";
+import ConfirmModal from "./ConfirmModal";
