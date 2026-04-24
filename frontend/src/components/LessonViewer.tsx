@@ -102,7 +102,7 @@ export default function LessonViewer({
     { id: "practice", label: "Exercises", icon: Dumbbell },
     { id: "playground", label: "Lab", icon: Code },
     { id: "quiz", label: "Quiz", icon: HelpCircle },
-  ] as const;
+  ].filter(tab => tab.id !== "playground" || (content.labTemplate && content.labTemplate.length > 5)) as any;
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden flex flex-col h-full min-h-[600px]">

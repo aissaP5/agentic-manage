@@ -1,10 +1,22 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { pipeline } from "@xenova/transformers";
 import { AppDataSource } from "../data-source.js";
 import { Knowledge } from "../entities/Knowledge.js";
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "YOUR_API_KEY");
-// Using a stable embedding model (embedding-001 is widely available)
-const embeddingModel = genAI.getGenerativeModel({ model: "embedding-001" });
+// Singleton pipeline for local embeddings (Free, No API Keys needed!)
+class Embedder {
+    static task = "feature-extraction";
+    // all-mpnet-base-v2 generates 768-dimensional vectors, perfectly matching our DB schema
+    static model = "Xenova/all-mpnet-base-v2"; 
+    static instance: any = null;
+
+    static async getInstance() {
+        if (this.instance === null) {
+            console.log(`⏳ Loading local embedding model (${this.model})... This might take a moment on first run.`);
+            this.instance = await pipeline(this.task as any, this.model);
+        }
+        return this.instance;
+    }
+}
 
 export class KnowledgeService {
     /**
@@ -12,9 +24,11 @@ export class KnowledgeService {
      */
     static async remember(topic: string, content: string, source: string = "AI") {
         try {
-            // Generate semantic embeddings for the content
-            const result = await embeddingModel.embedContent(content);
-            const embeddingVector = result.embedding.values;
+            const extractor = await Embedder.getInstance();
+            
+            // Generate semantic embeddings locally
+            const output: any = await extractor(content, { pooling: 'mean', normalize: true });
+            const embeddingVector = Array.from(output.data as Float32Array);
 
             const knowledgeRepo = AppDataSource.getRepository(Knowledge);
             
@@ -26,7 +40,7 @@ export class KnowledgeService {
             });
 
             await knowledgeRepo.save(newKnowledge);
-            console.log(`🧠 KnowledgeService: Remembered topic "${topic}"`);
+            console.log(`🧠 KnowledgeService: Remembered topic "${topic}" (100% Local RAG)`);
             
             return newKnowledge;
         } catch (err) {
@@ -40,8 +54,9 @@ export class KnowledgeService {
      */
     static async search(query: string, limit: number = 3) {
         try {
-            const result = await embeddingModel.embedContent(query);
-            const queryVector = result.embedding.values;
+            const extractor = await Embedder.getInstance();
+            const output: any = await extractor(query, { pooling: 'mean', normalize: true });
+            const queryVector = Array.from(output.data as Float32Array);
 
             // Using pgvector's specific cosine distance operator <=>
             // and TypeORM's query builder for raw queries.
@@ -54,7 +69,7 @@ export class KnowledgeService {
                 LIMIT $2
             `, [vectorString, limit]);
 
-            console.log(`🧠 KnowledgeService: Found ${results.length} memories for "${query}"`);
+            console.log(`🧠 KnowledgeService: Found ${results.length} memories for "${query}" (Local RAG)`);
             return results;
         } catch (err) {
             console.error("KnowledgeService Error (search):", err);

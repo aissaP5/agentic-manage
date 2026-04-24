@@ -36,6 +36,18 @@ logs/
 *.sqlite
 *.db
 
+# Scratch and Temporary files
+scratch/
+backend/scratch/
+temp/
+*.tmp
+
+# Transformers cache (if local)
+.cache/
+backend/.cache/
+
 # OS related
 .DS_Store
 at_checkpoint_*
+.gemini/
+.antigravity/

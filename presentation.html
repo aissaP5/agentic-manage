@@ -14,8 +14,9 @@
         .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.2); }
         h1, h2, h3 { letter-spacing: -0.025em; }
         .math-block { font-family: 'Cambria Math', 'Times New Roman', serif; background-color: #f1f5f9; padding: 1rem; border-radius: 0.5rem; text-align: center; font-size: 1.1rem; border: 1px solid #e2e8f0; }
-        .mermaid { display: flex; justify-content: center; background: white; padding: 2rem; border-radius: 1.5rem; border: 1px solid #e2e8f0; margin: 1.5rem 0; min-height: 350px; width: 100%; }
-        .mermaid svg { width: 100% !important; height: auto !important; max-width: 900px !important; }
+        .mermaid { display: flex; justify-content: center; background: white; padding: 1.5rem; border-radius: 1.5rem; border: 1px solid #e2e8f0; margin: 1.5rem 0; min-height: 250px; width: 100%; overflow: hidden; }
+        .mermaid svg { width: 100% !important; height: auto !important; max-width: 800px !important; }
+        .mermaid-small svg { max-width: 400px !important; }
     </style>
 </head>
 <body class="antialiased selection:bg-blue-200 selection:text-blue-900">
@@ -110,9 +111,6 @@
                     Les textes sont transformés en vecteurs dans un espace à haute dimension (ex: 768 dimensions). Pour évaluer la proximité sémantique entre une requête Q et un document D, l'algorithme calcule le produit scalaire normalisé de leurs vecteurs respectifs.
                 </p>
                 
-                <div class="math-block mb-4">
-                    cos(θ) = (Q · D) / (||Q|| × ||D||) = (∑ Q_i D_i) / (√(∑ Q_i²) × √(∑ D_i²))
-                </div>
                 
                 <p class="text-slate-600 text-sm">
                     <strong>Implémentation SQL :</strong> Dans PostgreSQL, cette opération est exécutée nativement via l'opérateur <code>&lt;=&gt;</code> (distance cosinus). Le système classe les résultats par distance croissante, sélectionnant les <em>k</em> voisins les plus proches pour les injecter dans le prompt du modèle de langage.
@@ -148,7 +146,7 @@
                 La génération du contenu est divisée en processus asynchrones séquentiels. Chaque agent IA reçoit une instruction stricte (System Prompt) et produit un format de données validé avant de le transmettre à l'agent suivant.
             </p>
 
-            <div class="mermaid">
+            <div class="mermaid mermaid-small">
                     graph TD
                     A[Requête Utilisateur] -->|POST /generate| B[Architecte]
                     B -->|JSON: Planification| C[RAG Engine]
@@ -197,9 +195,6 @@
                     L'interaction avec des modèles LLM distants implique des contraintes de quotas (Rate Limits HTTP 429). Le backend implémente une fonction d'attente exponentielle pour lisser les pics de requêtes.
                 </p>
                 
-                <div class="math-block mb-6">
-                    Temps d'attente = Délai Initial × 2^n
-                </div>
                 
                 <p class="text-slate-600 text-sm mb-6">
                     Si l'API primaire refuse la connexion après le nombre maximal de tentatives <em>n</em>, le système bascule de façon transparente vers l'API secondaire (Groq), en lui fournissant un schéma explicite de repli (Fallback Schema) pour maintenir l'intégrité de l'application.

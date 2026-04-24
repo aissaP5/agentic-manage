@@ -19,6 +19,7 @@ export default function Dashboard() {
   const [activePlan, setActivePlan] = useState<any>(initialPlan);
   const [currentPlanId, setCurrentPlanId] = useState<number | null>(location.state?.planData?.planId || null);
   const [allPlans, setAllPlans] = useState<any[]>([]);
+  const [plansLoaded, setPlansLoaded] = useState(false);
   const [activeTopic, setActiveTopic] = useState<string | null>(null);
   const [stats, setStats] = useState({ xp: 0, level: "Beginner", mastered: 0 });
   const [achievements, setAchievements] = useState<any[]>([]);
@@ -56,7 +57,10 @@ export default function Dashboard() {
             setCurrentPlanId(data[0].id);
           }
         })
-        .catch(err => console.error("Failed to load plans", err));
+        .catch(err => console.error("Failed to load plans", err))
+        .finally(() => setPlansLoaded(true));
+    } else {
+      setPlansLoaded(true);
     }
   };
  
@@ -96,11 +100,13 @@ export default function Dashboard() {
   useEffect(() => {
     fetchStats();
     fetchPlans();
-    
+  }, [user]);
+
+  useEffect(() => {
     // Bind global callback for PlanDisplay
     (window as any).onStartPhaseExam = handleStartExam;
     return () => { delete (window as any).onStartPhaseExam; };
-  }, [user]);
+  }, [currentPlanId]);
 
   const handleStartExam = async (phaseIndex: number, phase: any) => {
     setExamLoading(true);
@@ -119,6 +125,7 @@ export default function Dashboard() {
   };
 
   if (!user) return <Navigate to="/" replace />;
+  if (!plansLoaded) return <div className="flex items-center justify-center min-h-screen text-slate-500 font-medium">Loading your courses...</div>;
   if (!activePlan && allPlans.length === 0) return <Navigate to="/" replace />;
 
   const currentPlan = activePlan || allPlans[0]?.planData;
@@ -195,6 +202,7 @@ export default function Dashboard() {
 
           <Link 
             to="/" 
+            state={{ forceNew: true }}
             className="mt-8 w-full py-3 px-4 bg-slate-900 hover:bg-black text-white rounded-xl font-bold transition-colors flex items-center justify-center gap-2 shadow-lg"
           >
             <PlusCircle size={18} /> New Subject

@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
+import { GoogleGenerativeAI, SchemaType, HarmCategory, HarmBlockThreshold } from "@google/generative-ai";
 import { jsonrepair } from 'jsonrepair';
 import * as dotenv from "dotenv";
 import OpenAI from "openai";
@@ -258,7 +258,7 @@ export class AgentOrchestrator {
    */
   static async generateLearningPlan(topic: string, duration?: string) {
     const aiProviders = [
-      { name: "gemini-2.0-flash", provider: "gemini" },
+      { name: "gemini-1.5-flash", provider: "gemini" },
       { name: "llama-3.3-70b-versatile", provider: "groq" },
       { name: "llama-3.1-8b-instant", provider: "groq" }
     ];
@@ -369,7 +369,13 @@ ${contextString}
         if (modelConfig.provider === "gemini") {
             const model = genAI.getGenerativeModel({ 
                 model: modelConfig.name,
-                tools: TOOLS as any
+                tools: TOOLS as any,
+                safetySettings: [
+                  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
+                ]
             });
 
             const chat = model.startChat();
@@ -615,7 +621,7 @@ You MUST return ONLY a valid JSON object matching this EXACT schema:
   "topic": "${subTopic}",
   "reasoning": "...",
   "mermaidDiagram": "...",
-  "labTemplate": "<!DOCTYPE html><html><head><style>/* CSS */</style></head><body><!-- HTML --></body></html>",
+  "labTemplate": "<!DOCTYPE html><html>... (ONLY if topic is programming/coding related, otherwise null)",
   "sections": [
     { "title": "Introduction", "content": "..." },
     { "title": "Deep Dive", "content": "..." },
@@ -635,13 +641,22 @@ You MUST return ONLY a valid JSON object matching this EXACT schema:
 CRITICAL:
 - Length: Each section MUST be at least 300 words. Total module > 1000 words.
 - Visual: MUST be a unique Mermaid mindmap.
+- Lab: The "labTemplate" field MUST be null if the topic is not related to software development, math, or physics (anything not requiring a code playground).
 - Resources: Include real URLs found in research context.
 - EXTREMELY IMPORTANT: DO NOT RETURN EMPTY SECTIONS.
 
 `;
 
 
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
+            ]
+        });
         const result = await this.withRetry(() => model.generateContent(writingPrompt));
         let responseText = result.response.text();
         
@@ -707,7 +722,15 @@ Return ONLY a valid JSON object matching this schema:
 
     // Try Gemini first
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
+            ]
+        });
         const result = await this.withRetry(() => model.generateContent(prompt));
         let text = result.response.text();
         text = text.replace(/```json\s*/gi, "").replace(/```\s*/g, "").trim();
@@ -748,7 +771,15 @@ Return ONLY a valid JSON object matching this schema:
 
     // Try Gemini
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
+            ]
+        });
         const prompt = `Generate a COMPREHENSIVE educational module JSON for topic: "${subTopic}" (Subject: ${mainTopic}). 
         Include Introduction, Core Concepts, and Advanced Deep Dive sections. 
         Each section MUST have at least 300 words of content.
@@ -798,8 +829,16 @@ Return ONLY valid JSON.
 `;
 
     try {
-        // Use 2.0 flash for review
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        // Use 1.5 flash for review
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
+            ]
+        });
         const result = await this.withRetry(() => model.generateContent(prompt));
         let responseText = result.response.text();
         
@@ -835,7 +874,15 @@ Return ONLY valid JSON.
     const prompt = `You are an Expert AI Tutor. Evaluate this submission for "${exercise.title}". Return JSON {score, feedback, passed}.`;
     
     try {
-        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+        const model = genAI.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            safetySettings: [
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE }
+            ]
+        });
         const result = await model.generateContent(`${prompt}\n\nSubmission: ${submission}\nContext: ${exercise.description}`);
         const text = result.response.text();
         const match = text.match(/\{[\s\S]*\}/);
@@ -856,15 +903,35 @@ Return ONLY valid JSON.
     }
   }
 
-  static async refinePlan(currentPlan: any, userMessage: string): Promise<any> {
-    const prompt = `You are an elite Education Architect. Redesign this plan based on user feedback.\n\nFeedback: ${userMessage}\n\nCurrent Plan: ${JSON.stringify(currentPlan)}`;
+  static async refinePlan(currentPlan: any, userMessage: string): Promise<{ plan: any, explanation: string }> {
+    const prompt = `You are an elite Education Architect. Redesign this JSON plan based on user feedback.
+You MUST return a JSON object with two fields:
+1. "plan": The full updated JSON plan (matching the EXACT schema of the Current Plan).
+2. "explanation": A very short, friendly message (1 sentence) explaining exactly what you changed (e.g., "I've added FastAPI to Week 3").
+
+If the feedback is just a greeting or unrelated, return the Current Plan exactly as it is and a friendly greeting in "explanation".
+
+Feedback: ${userMessage}
+
+Current Plan: ${JSON.stringify(currentPlan)}`;
     
     try {
         const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
         const result = await model.generateContent(prompt);
         const text = result.response.text();
         const match = text.match(/\{[\s\S]*\}/);
-        return this.safeParse(match ? match[0] : text);
+        let resultData = this.safeParse(match ? match[0] : text);
+        
+        let updatedPlan = resultData.plan || resultData; // Fallback if AI forgets the wrapper
+        const explanation = resultData.explanation || "I've updated your curriculum!";
+
+        if (!updatedPlan.plan || !Array.isArray(updatedPlan.plan) || updatedPlan.plan.length === 0) updatedPlan.plan = currentPlan.plan;
+        if (!updatedPlan.content || !Array.isArray(updatedPlan.content)) updatedPlan.content = currentPlan.content;
+        
+        return { 
+            plan: this.sanitizePlanData(updatedPlan), 
+            explanation 
+        };
     } catch (err) {
         if (groqClient) {
             const completion = await groqClient.chat.completions.create({
@@ -872,7 +939,18 @@ Return ONLY valid JSON.
                 messages: [{ role: "user", content: prompt }],
                 response_format: { type: "json_object" }
             });
-            return this.safeParse(completion.choices[0]?.message?.content || "{}");
+            let resultData = this.safeParse(completion.choices[0]?.message?.content || "{}");
+            
+            let updatedPlan = resultData.plan || resultData;
+            const explanation = resultData.explanation || "I've updated your curriculum!";
+
+            if (!updatedPlan.plan || !Array.isArray(updatedPlan.plan) || updatedPlan.plan.length === 0) updatedPlan.plan = currentPlan.plan;
+            if (!updatedPlan.content || !Array.isArray(updatedPlan.content)) updatedPlan.content = currentPlan.content;
+            
+            return { 
+                plan: this.sanitizePlanData(updatedPlan), 
+                explanation 
+            };
         }
         throw err;
     }
@@ -946,16 +1024,25 @@ Return ONLY valid JSON.
         } catch (err: any) {
             lastError = err;
             const errMsg = err.message || "";
-            const isQuotaExceeded = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("Rate limit");
+            const isRetryable = 
+                errMsg.includes("429") || 
+                errMsg.includes("quota") || 
+                errMsg.includes("Rate limit") ||
+                errMsg.includes("500") || 
+                errMsg.includes("502") || 
+                errMsg.includes("503") ||
+                errMsg.includes("safety") ||
+                errMsg.includes("finishReason: SAFETY");
+
             const isHardLimit = errMsg.includes("limit: 0") || errMsg.includes("requests per day");
 
-            if (isQuotaExceeded) {
+            if (isRetryable) {
                 if (isHardLimit) {
                     console.warn(`🛑 Hard Quota Limit reached (limit: 0). Skipping retries and switching provider...`);
                     throw err; // Fail fast to trigger fallback
                 }
                 
-                console.warn(`⏳ Rate limit hit. Retrying in ${delay}ms... (Attempt ${i + 1}/${maxRetries})`);
+                console.warn(`⏳ AI Service issue or limit hit. Retrying in ${delay}ms... (Attempt ${i + 1}/${maxRetries})`);
                 await new Promise(resolve => setTimeout(resolve, delay));
                 delay *= 2; 
                 continue;

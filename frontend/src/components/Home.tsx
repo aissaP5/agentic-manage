@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { BookOpen, Clock, ArrowRight, Sparkles } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
@@ -11,11 +11,13 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [thinkingLogs, setThinkingLogs] = useState<any[]>([]);
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
+  const forceNew = location.state?.forceNew;
 
   // Redirect to Dashboard directly if the user already has courses
   useEffect(() => {
-    if (user?.id) {
+    if (user?.id && !forceNew) {
       apiClient.get(`/users/${user.id}/plans`)
         .then(res => {
           if (res.data && res.data.length > 0) {
@@ -24,7 +26,7 @@ export default function Home() {
         })
         .catch(err => console.error("Failed to check user plans", err));
     }
-  }, [user, navigate]);
+  }, [user, navigate, forceNew]);
 
   // Simulate Agentic Thought Process
   useEffect(() => {

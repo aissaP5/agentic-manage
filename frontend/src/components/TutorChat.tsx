@@ -45,7 +45,7 @@ export default function TutorChat({ planId, onPlanRefined }: TutorChatProps) {
       const data = res.data;
       
       if (data.data) {
-        setMessages(prev => [...prev, { role: "bot", text: "I've updated your curriculum! Check out the changes in your timeline." }]);
+        setMessages(prev => [...prev, { role: "bot", text: data.message || "I've updated your curriculum! Check out the changes in your timeline." }]);
         onPlanRefined(data.data);
       } else {
          setMessages(prev => [...prev, { role: "bot", text: "Sorry, I couldn't process that refinement. Try asking differently!" }]);
@@ -67,9 +67,6 @@ export default function TutorChat({ planId, onPlanRefined }: TutorChatProps) {
         className="fixed bottom-8 right-8 w-16 h-16 bg-blue-600 text-white rounded-full shadow-2xl flex items-center justify-center z-[100] cursor-pointer"
       >
         {isOpen ? <X size={28} /> : <MessageSquare size={28} />}
-        {!isOpen && (
-            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full border-2 border-white animate-bounce"></span>
-        )}
       </motion.button>
 
       {/* Chat Window */}

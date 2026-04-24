@@ -102,13 +102,16 @@ export class LearningController {
       if (!plan) return res.status(404).json({ error: "Plan not found" });
 
       // Call AI to refine the JSON
-      const updatedPlanData = await AgentOrchestrator.refinePlan(plan.planData, message);
+      const { plan: updatedPlanData, explanation } = await AgentOrchestrator.refinePlan(plan.planData, message);
       
       // Save
       plan.planData = updatedPlanData;
       await planRepository.save(plan);
       
-      res.json({ message: "Plan refined successfully", data: updatedPlanData });
+      res.json({ 
+        message: explanation || "Plan refined successfully", 
+        data: updatedPlanData 
+      });
     } catch (error: any) {
         console.error("ChatRefine error:", error);
         res.status(500).json({ error: "AI Refinement failed", details: error.message });
